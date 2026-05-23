@@ -368,7 +368,7 @@
                             <button type="reset" class="mr-3 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors">
                                 Reset
                             </button>
-                            <button type="submit" class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                            <button type="submit" id="btnSubmitKehadiran" class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
                                 Simpan Data
                             </button>
                         </div>
@@ -449,6 +449,13 @@
                                             <input type="time" id="time0" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
                                         </div>
                                     </div>
+                                </div>
+                                <div>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" id="masterStatusAktif" class="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" checked>
+                                        <span class="text-sm font-medium text-gray-700">Dokter Aktif berpraktik</span>
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1 ml-6">Jika tidak dicentang (Non-Aktif), dokter tidak akan muncul di menu Catat Kehadiran.</p>
                                 </div>
                                 <div class="flex gap-2">
                                     <button type="button" onclick="cancelEdit('dokter')" id="btnCancelDokter" class="hidden flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium transition-colors">Batal</button>
@@ -882,6 +889,21 @@
             return items.length > 0 ? items.join(', ') : 'Belum diset';
         }
 
+        // Helper: Toggling loading state pada tombol submit
+        function toggleLoading(btnId, isLoading, originalText) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            if (isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...`;
+                btn.classList.add('opacity-75', 'cursor-not-allowed');
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+
         // --- STREAMING_CHUNK:Logika Halaman Input Data ---
         
         function prepareInputForm() {
@@ -913,7 +935,8 @@
             const poliId = document.getElementById('inputPoli').value;
             const selectDokter = document.getElementById('inputDokter');
             
-            const dokterTerkait = appData.dokter.filter(d => d.poliId === poliId);
+            // Filter hanya menampilkan dokter yang aktif (atau data lama yang tidak punya properti aktif)
+            const dokterTerkait = appData.dokter.filter(d => d.poliId === poliId && d.aktif !== false);
             
             selectDokter.innerHTML = '<option value="" disabled selected>Pilih Dokter</option>';
             
@@ -1017,6 +1040,8 @@
             const docId = existingLog ? existingLog.id : 'log_' + Date.now() + Math.random().toString(36).substr(2, 5);
             const payload = { tanggal, dokterId, poliId, jadwal, hadir, status, keterangan, keterlambatanMenit };
 
+            toggleLoading('btnSubmitKehadiran', true);
+
             try {
                 await setDoc(getDocPath('kehadiran', docId), payload);
                 showToast('Catatan kehadiran berhasil disinkronisasi!', 'success');
@@ -1028,6 +1053,8 @@
                 prepareInputForm(); // Repopulate dropdown
             } catch (error) {
                 showToast('Gagal menyimpan data ke jaringan', 'error');
+            } finally {
+                toggleLoading('btnSubmitKehadiran', false, 'Simpan Data');
             }
         });
 
@@ -1075,6 +1102,7 @@
                 editDokterId = null;
                 document.getElementById('formTambahDokter').reset();
                 document.querySelectorAll('.time-hari').forEach(t => t.disabled = true);
+                document.getElementById('masterStatusAktif').checked = true; // Default aktif
                 document.getElementById('btnSubmitDokter').textContent = "Simpan Dokter";
                 document.getElementById('btnCancelDokter').classList.add('hidden');
             } else {
@@ -1111,6 +1139,7 @@
                     const poli = appData.poliklinik.find(p => p.id === d.poliId);
                     const namaPoli = poli ? poli.nama : 'Poli Tidak Ditemukan';
                     const jadwalInfo = formatJadwalInfo(d.jadwal, d.jadwalDefault);
+                    const statusBadge = d.aktif === false ? `<span class="ml-2 px-2 inline-flex text-xs leading-4 font-semibold rounded-full bg-red-100 text-red-800">Non-Aktif</span>` : '';
                     
                     const li = document.createElement('li');
                     li.className = "px-5 py-4 flex items-center justify-between hover:bg-gray-50";
@@ -1120,7 +1149,7 @@
                                 <i class="fas fa-user-md"></i>
                             </div>
                             <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-900">${d.nama}</p>
+                                <p class="text-sm font-medium text-gray-900">${d.nama} ${statusBadge}</p>
                                 <p class="text-xs text-gray-500">${namaPoli}</p>
                                 <p class="text-xs text-indigo-600 mt-0.5" title="${jadwalInfo}">Jadwal: ${jadwalInfo}</p>
                             </div>
@@ -1188,6 +1217,7 @@
             e.preventDefault();
             const nama = document.getElementById('masterNamaDokter').value;
             const poliId = document.getElementById('masterPoliDokter').value;
+            const aktif = document.getElementById('masterStatusAktif').checked;
             
             // Mengambil data jadwal per hari
             const jadwal = {};
@@ -1205,12 +1235,19 @@
             }
 
             const docId = editDokterId ? editDokterId : 'd_' + Date.now();
+            
+            toggleLoading('btnSubmitDokter', true);
             try {
                 // jadwalDefault diisi kosong untuk data baru, data asli ada di jadwal (objek)
-                await setDoc(getDocPath('dokter', docId), { nama, poliId, jadwalDefault: '', jadwal }, { merge: true });
+                await setDoc(getDocPath('dokter', docId), { nama, poliId, aktif, jadwalDefault: '', jadwal }, { merge: true });
                 showToast(editDokterId ? 'Data dokter diperbarui' : 'Dokter berhasil didaftarkan', 'success');
                 cancelEdit('dokter'); // Reset form & state
-            } catch (error) { showToast('Gagal menyimpan data dokter', 'error'); }
+            } catch (error) { 
+                showToast('Gagal menyimpan data dokter', 'error'); 
+            } finally {
+                const textBtn = editDokterId ? 'Update Dokter' : 'Simpan Dokter';
+                toggleLoading('btnSubmitDokter', false, textBtn);
+            }
         });
 
         // Toggle disable pada input time sesuai checkbox hari
@@ -1227,11 +1264,18 @@
             const nama = document.getElementById('masterNamaPoli').value;
 
             const docId = editPoliId ? editPoliId : 'p_' + Date.now();
+            
+            toggleLoading('btnSubmitPoli', true);
             try {
                 await setDoc(getDocPath('poliklinik', docId), { nama }, { merge: true });
                 showToast(editPoliId ? 'Data poliklinik diperbarui' : 'Poliklinik berhasil ditambahkan', 'success');
                 cancelEdit('poli'); // Reset form & state
-            } catch (error) { showToast('Gagal menyimpan poliklinik', 'error'); }
+            } catch (error) { 
+                showToast('Gagal menyimpan poliklinik', 'error'); 
+            } finally {
+                const textBtn = editPoliId ? 'Update Poli' : 'Simpan Poli';
+                toggleLoading('btnSubmitPoli', false, textBtn);
+            }
         });
 
         function editDokter(id) {
@@ -1243,6 +1287,7 @@
             
             document.getElementById('masterNamaDokter').value = d.nama;
             document.getElementById('masterPoliDokter').value = d.poliId;
+            document.getElementById('masterStatusAktif').checked = d.aktif !== false;
             
             // Reset checkboxes
             document.querySelectorAll('.chk-hari').forEach(chk => {
