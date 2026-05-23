@@ -450,7 +450,10 @@
                                         </div>
                                     </div>
                                 </div>
-                                <button type="submit" class="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Dokter</button>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="cancelEdit('dokter')" id="btnCancelDokter" class="hidden flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium transition-colors">Batal</button>
+                                    <button type="submit" id="btnSubmitDokter" class="flex-1 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Dokter</button>
+                                </div>
                             </form>
 
                             <!-- Form Poli (Hidden by default) -->
@@ -459,7 +462,10 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama Poliklinik</label>
                                     <input type="text" id="masterNamaPoli" required placeholder="Poli Penyakit Dalam" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                 </div>
-                                <button type="submit" class="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Poli</button>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="cancelEdit('poli')" id="btnCancelPoli" class="hidden flex-1 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium transition-colors">Batal</button>
+                                    <button type="submit" id="btnSubmitPoli" class="flex-1 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Poli</button>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -468,14 +474,17 @@
                     <div class="lg:col-span-2">
                         <div class="bg-white rounded-lg shadow overflow-hidden h-full flex flex-col">
                             <div class="px-5 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                                <h3 class="text-lg font-semibold text-gray-700">Daftar Dokter Terdaftar</h3>
+                                <h3 id="masterListTitle" class="text-lg font-semibold text-gray-700">Daftar Dokter Terdaftar</h3>
                                 <div class="relative">
-                                    <input type="text" id="searchDokter" placeholder="Cari dokter..." class="pl-8 pr-3 py-1 text-sm border rounded-full focus:outline-none focus:border-indigo-500">
+                                    <input type="text" id="searchDokter" placeholder="Cari..." class="pl-8 pr-3 py-1 text-sm border rounded-full focus:outline-none focus:border-indigo-500">
                                     <i class="fas fa-search absolute left-3 top-2 text-gray-400 text-xs"></i>
                                 </div>
                             </div>
                             <div class="flex-1 overflow-y-auto p-0">
                                 <ul id="listDokterMaster" class="divide-y divide-gray-200">
+                                    <!-- Injected via JS -->
+                                </ul>
+                                <ul id="listPoliMaster" class="divide-y divide-gray-200 hidden">
                                     <!-- Injected via JS -->
                                 </ul>
                             </div>
@@ -1025,22 +1034,54 @@
 
         // --- STREAMING_CHUNK:Logika Halaman Master Data ---
         
+        let editDokterId = null;
+        let editPoliId = null;
+
         function switchMasterTab(tab) {
             const btnDokter = document.getElementById('tabBtnDokter');
             const btnPoli = document.getElementById('tabBtnPoli');
             const formDokter = document.getElementById('formTambahDokter');
             const formPoli = document.getElementById('formTambahPoli');
+            const listDokter = document.getElementById('listDokterMaster');
+            const listPoli = document.getElementById('listPoliMaster');
+            const listTitle = document.getElementById('masterListTitle');
+            const searchInput = document.getElementById('searchDokter');
 
             if (tab === 'dokter') {
                 btnDokter.className = "flex-1 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors";
                 btnPoli.className = "flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors";
                 formDokter.classList.remove('hidden');
                 formPoli.classList.add('hidden');
+                listDokter.classList.remove('hidden');
+                listPoli.classList.add('hidden');
+                listTitle.textContent = 'Daftar Dokter Terdaftar';
+                searchInput.placeholder = 'Cari dokter...';
             } else {
                 btnPoli.className = "flex-1 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors";
                 btnDokter.className = "flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors";
                 formPoli.classList.remove('hidden');
                 formDokter.classList.add('hidden');
+                listPoli.classList.remove('hidden');
+                listDokter.classList.add('hidden');
+                listTitle.textContent = 'Daftar Poliklinik';
+                searchInput.placeholder = 'Cari poliklinik...';
+            }
+            
+            renderMasterData(searchInput.value);
+        }
+
+        function cancelEdit(type) {
+            if(type === 'dokter') {
+                editDokterId = null;
+                document.getElementById('formTambahDokter').reset();
+                document.querySelectorAll('.time-hari').forEach(t => t.disabled = true);
+                document.getElementById('btnSubmitDokter').textContent = "Simpan Dokter";
+                document.getElementById('btnCancelDokter').classList.add('hidden');
+            } else {
+                editPoliId = null;
+                document.getElementById('formTambahPoli').reset();
+                document.getElementById('btnSubmitPoli').textContent = "Simpan Poli";
+                document.getElementById('btnCancelPoli').classList.add('hidden');
             }
         }
 
@@ -1065,33 +1106,76 @@
 
             if (filteredDokter.length === 0) {
                 listContainer.innerHTML = '<li class="px-5 py-4 text-center text-gray-500 text-sm">Tidak ada dokter ditemukan.</li>';
-                return;
+            } else {
+                filteredDokter.forEach(d => {
+                    const poli = appData.poliklinik.find(p => p.id === d.poliId);
+                    const namaPoli = poli ? poli.nama : 'Poli Tidak Ditemukan';
+                    const jadwalInfo = formatJadwalInfo(d.jadwal, d.jadwalDefault);
+                    
+                    const li = document.createElement('li');
+                    li.className = "px-5 py-4 flex items-center justify-between hover:bg-gray-50";
+                    li.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-900">${d.nama}</p>
+                                <p class="text-xs text-gray-500">${namaPoli}</p>
+                                <p class="text-xs text-indigo-600 mt-0.5" title="${jadwalInfo}">Jadwal: ${jadwalInfo}</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="editDokter('${d.id}')" class="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50 transition" title="Edit Dokter">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="hapusDokter('${d.id}')" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Hapus Dokter">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                    listContainer.appendChild(li);
+                });
             }
 
-            filteredDokter.forEach(d => {
-                const poli = appData.poliklinik.find(p => p.id === d.poliId);
-                const namaPoli = poli ? poli.nama : 'Poli Tidak Ditemukan';
-                const jadwalInfo = formatJadwalInfo(d.jadwal, d.jadwalDefault);
-                
-                const li = document.createElement('li');
-                li.className = "px-5 py-4 flex items-center justify-between hover:bg-gray-50";
-                li.innerHTML = `
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
-                            <i class="fas fa-user-md"></i>
+            // Render List Poli
+            const listPoliContainer = document.getElementById('listPoliMaster');
+            listPoliContainer.innerHTML = '';
+            
+            let filteredPoli = appData.poliklinik;
+            if(term) {
+                filteredPoli = appData.poliklinik.filter(p => p.nama.toLowerCase().includes(term));
+            }
+
+            if (filteredPoli.length === 0) {
+                listPoliContainer.innerHTML = '<li class="px-5 py-4 text-center text-gray-500 text-sm">Tidak ada poliklinik ditemukan.</li>';
+            } else {
+                filteredPoli.forEach(p => {
+                    const jmlDokter = appData.dokter.filter(d => d.poliId === p.id).length;
+                    const li = document.createElement('li');
+                    li.className = "px-5 py-4 flex items-center justify-between hover:bg-gray-50";
+                    li.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
+                                <i class="fas fa-clinic-medical"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-900">${p.nama}</p>
+                                <p class="text-xs text-gray-500">${jmlDokter} Dokter terdaftar</p>
+                            </div>
                         </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-900">${d.nama}</p>
-                            <p class="text-xs text-gray-500">${namaPoli}</p>
-                            <p class="text-xs text-indigo-600 mt-0.5" title="${jadwalInfo}">Jadwal: ${jadwalInfo}</p>
+                        <div class="flex space-x-2">
+                            <button onclick="editPoli('${p.id}')" class="text-indigo-500 hover:text-indigo-700 p-2 rounded-full hover:bg-indigo-50 transition" title="Edit Poli">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="hapusPoli('${p.id}')" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Hapus Poli">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
                         </div>
-                    </div>
-                    <button onclick="hapusDokter('${d.id}')" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Hapus Dokter">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                `;
-                listContainer.appendChild(li);
-            });
+                    `;
+                    listPoliContainer.appendChild(li);
+                });
+            }
         }
 
         // Pencarian Dokter
@@ -1120,15 +1204,13 @@
                 return;
             }
 
-            const docId = 'd_' + Date.now();
+            const docId = editDokterId ? editDokterId : 'd_' + Date.now();
             try {
                 // jadwalDefault diisi kosong untuk data baru, data asli ada di jadwal (objek)
-                await setDoc(getDocPath('dokter', docId), { nama, poliId, jadwalDefault: '', jadwal });
-                showToast('Dokter berhasil didaftarkan', 'success');
-                this.reset();
-                // Disable ulang semua input time
-                document.querySelectorAll('.time-hari').forEach(t => t.disabled = true);
-            } catch (error) { showToast('Gagal mendaftar dokter', 'error'); }
+                await setDoc(getDocPath('dokter', docId), { nama, poliId, jadwalDefault: '', jadwal }, { merge: true });
+                showToast(editDokterId ? 'Data dokter diperbarui' : 'Dokter berhasil didaftarkan', 'success');
+                cancelEdit('dokter'); // Reset form & state
+            } catch (error) { showToast('Gagal menyimpan data dokter', 'error'); }
         });
 
         // Toggle disable pada input time sesuai checkbox hari
@@ -1144,14 +1226,58 @@
             e.preventDefault();
             const nama = document.getElementById('masterNamaPoli').value;
 
-            const docId = 'p_' + Date.now();
+            const docId = editPoliId ? editPoliId : 'p_' + Date.now();
             try {
-                await setDoc(getDocPath('poliklinik', docId), { nama });
-                showToast('Poliklinik berhasil ditambahkan', 'success');
-                this.reset();
-                switchMasterTab('dokter'); 
-            } catch (error) { showToast('Gagal menambah poliklinik', 'error'); }
+                await setDoc(getDocPath('poliklinik', docId), { nama }, { merge: true });
+                showToast(editPoliId ? 'Data poliklinik diperbarui' : 'Poliklinik berhasil ditambahkan', 'success');
+                cancelEdit('poli'); // Reset form & state
+            } catch (error) { showToast('Gagal menyimpan poliklinik', 'error'); }
         });
+
+        function editDokter(id) {
+            const d = appData.dokter.find(x => x.id === id);
+            if(!d) return;
+            
+            switchMasterTab('dokter');
+            editDokterId = id;
+            
+            document.getElementById('masterNamaDokter').value = d.nama;
+            document.getElementById('masterPoliDokter').value = d.poliId;
+            
+            // Reset checkboxes
+            document.querySelectorAll('.chk-hari').forEach(chk => {
+                chk.checked = false;
+                toggleTimeInputDay(chk.value);
+            });
+            
+            if(d.jadwal) {
+                for(let day in d.jadwal) {
+                    const chk = document.getElementById(`chk${day}`);
+                    if(chk) {
+                        chk.checked = true;
+                        toggleTimeInputDay(day);
+                        document.getElementById(`time${day}`).value = d.jadwal[day];
+                    }
+                }
+            }
+            
+            document.getElementById('btnSubmitDokter').textContent = "Update Dokter";
+            document.getElementById('btnCancelDokter').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function editPoli(id) {
+            const p = appData.poliklinik.find(x => x.id === id);
+            if(!p) return;
+            
+            switchMasterTab('poli');
+            editPoliId = id;
+            document.getElementById('masterNamaPoli').value = p.nama;
+            
+            document.getElementById('btnSubmitPoli').textContent = "Update Poli";
+            document.getElementById('btnCancelPoli').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
         async function hapusDokter(id) {
             if(confirm("Yakin ingin menghapus dokter ini? Riwayat kehadirannya tidak akan terhapus.")) {
@@ -1159,6 +1285,21 @@
                     await deleteDoc(getDocPath('dokter', id));
                     showToast('Dokter telah dihapus', 'success');
                 } catch (error) { showToast('Gagal menghapus dokter', 'error'); }
+            }
+        }
+
+        async function hapusPoli(id) {
+            const isUsed = appData.dokter.some(d => d.poliId === id);
+            if(isUsed) {
+                showToast('Gagal: Poliklinik ini masih digunakan oleh dokter terdaftar!', 'error');
+                return;
+            }
+            
+            if(confirm("Yakin ingin menghapus poliklinik ini?")) {
+                try {
+                    await deleteDoc(getDocPath('poliklinik', id));
+                    showToast('Poliklinik telah dihapus', 'success');
+                } catch (error) { showToast('Gagal menghapus poliklinik', 'error'); }
             }
         }
 
@@ -1851,7 +1992,11 @@
         window.setJadwalDefault = setJadwalDefault;
         window.setWaktuSekarang = setWaktuSekarang;
         window.switchMasterTab = switchMasterTab;
+        window.cancelEdit = cancelEdit;
+        window.editDokter = editDokter;
+        window.editPoli = editPoli;
         window.hapusDokter = hapusDokter;
+        window.hapusPoli = hapusPoli;
         window.updateReportFilters = updateReportFilters;
         window.generateReport = generateReport;
         window.switchReportTab = switchReportTab;
