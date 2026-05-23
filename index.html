@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Ketepatan Waktu Praktik Dokter</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js untuk Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Font Awesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+        
+        /* Utility class untuk menyembunyikan elemen */
+        .hidden { display: none !important; }
+        
+        /* Styling untuk tabel agar lebih rapi di mobile */
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        /* Transisi halus antar halaman */
+        .page-section {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Notifikasi Toast */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s forwards, fadeOut 0.3s 2.7s forwards;
+            opacity: 0;
+            transform: translateX(100%);
+        }
+
+        .toast.success { background-color: #10b981; } /* Emerald 500 */
+        .toast.error { background-color: #ef4444; } /* Red 500 */
+
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-indigo-800 text-white flex flex-col absolute z-30 h-full transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300" id="sidebar">
+        <div class="p-6 border-b border-indigo-700 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold tracking-wider text-indigo-200">MediTime</h1>
+                <p class="text-xs text-indigo-300 mt-1">Monitoring Praktik</p>
+            </div>
+            <button id="closeSidebarBtn" class="md:hidden text-indigo-200 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-2 px-4">
+                <li>
+                    <a href="#" onclick="showPage('dashboard')" class="nav-link block py-2.5 px-4 rounded transition duration-200 hover:bg-indigo-700 bg-indigo-900" data-page="dashboard">
+                        <i class="fas fa-chart-pie mr-2 w-5 text-center"></i> Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('input-data')" class="nav-link block py-2.5 px-4 rounded transition duration-200 hover:bg-indigo-700" data-page="input-data">
+                        <i class="fas fa-edit mr-2 w-5 text-center"></i> Catat Kehadiran
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('data-dokter')" class="nav-link block py-2.5 px-4 rounded transition duration-200 hover:bg-indigo-700" data-page="data-dokter">
+                        <i class="fas fa-user-md mr-2 w-5 text-center"></i> Data Dokter & Poli
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('laporan')" class="nav-link block py-2.5 px-4 rounded transition duration-200 hover:bg-indigo-700" data-page="laporan">
+                        <i class="fas fa-file-alt mr-2 w-5 text-center"></i> Laporan
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="p-4 border-t border-indigo-700">
+            <button onclick="resetData()" class="w-full text-left py-2 px-4 text-sm text-indigo-300 hover:text-white hover:bg-indigo-700 rounded transition duration-200">
+                <i class="fas fa-trash-alt mr-2"></i> Reset Data
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden relative">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-sm z-10 p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <button id="openSidebarBtn" class="mr-4 text-gray-500 hover:text-gray-700 focus:outline-none md:hidden">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h2 id="pageTitle" class="text-xl font-semibold text-gray-800">Dashboard</h2>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-500 font-medium" id="currentDateDisplay"></span>
+                <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-bold">
+                    A
+                </div>
+            </div>
+        </header>
+
+        <!-- Container Toast Notifikasi -->
+        <div id="toast-container"></div>
+
+        <!-- Content Area -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-6">
+            
+            <!-- === HALAMAN: DASHBOARD === -->
+            <section id="dashboard" class="page-section">
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-indigo-100 text-indigo-500 mr-4">
+                                <i class="fas fa-stethoscope fa-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium mb-1">Total Dokter</p>
+                                <p class="text-2xl font-bold text-gray-800" id="dashTotalDokter">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-emerald-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-emerald-100 text-emerald-500 mr-4">
+                                <i class="fas fa-check-circle fa-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium mb-1">Kehadiran Tepat Waktu</p>
+                                <p class="text-2xl font-bold text-gray-800" id="dashTepatWaktu">0%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-amber-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-amber-100 text-amber-500 mr-4">
+                                <i class="fas fa-clock fa-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium mb-1">Rata-rata Keterlambatan</p>
+                                <p class="text-2xl font-bold text-gray-800" id="dashRataTerlambat">0 mnt</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-5 border-l-4 border-red-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-red-100 text-red-500 mr-4">
+                                <i class="fas fa-times-circle fa-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium mb-1">Tidak Hadir (Bulan Ini)</p>
+                                <p class="text-2xl font-bold text-gray-800" id="dashTidakHadir">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Chart: Tren Kepatuhan -->
+                    <div class="bg-white rounded-lg shadow p-5">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Tren Ketepatan Waktu (7 Hari Terakhir)</h3>
+                        <div class="relative h-64 w-full">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart: Kepatuhan per Poli -->
+                    <div class="bg-white rounded-lg shadow p-5">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Persentase Tepat Waktu per Poliklinik</h3>
+                        <div class="relative h-64 w-full flex justify-center">
+                            <canvas id="poliChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activities Table -->
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-gray-700">Catatan Kehadiran Terbaru</h3>
+                        <button onclick="showPage('laporan')" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Lihat Semua</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokter</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poliklinik</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jadwal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hadir</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="recentTableBody">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- === HALAMAN: INPUT DATA KEHADIRAN === -->
+            <section id="input-data" class="page-section hidden">
+                <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="px-6 py-4 bg-indigo-50 border-b border-indigo-100">
+                        <h3 class="text-lg font-semibold text-indigo-800">Catat Kehadiran Dokter</h3>
+                        <p class="text-sm text-gray-600 mt-1">Masukkan waktu kedatangan dokter untuk memonitor ketepatan jadwal praktik.</p>
+                    </div>
+                    
+                    <form id="formKehadiran" class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Tanggal -->
+                            <div>
+                                <label for="inputTanggal" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Praktik *</label>
+                                <input type="date" id="inputTanggal" required
+                                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            
+                            <!-- Poliklinik -->
+                            <div>
+                                <label for="inputPoli" class="block text-sm font-medium text-gray-700 mb-1">Poliklinik *</label>
+                                <select id="inputPoli" required onchange="updateDokterDropdown()"
+                                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="" disabled selected>Pilih Poliklinik</option>
+                                    <!-- Options injected via JS -->
+                                </select>
+                            </div>
+
+                            <!-- Dokter -->
+                            <div>
+                                <label for="inputDokter" class="block text-sm font-medium text-gray-700 mb-1">Nama Dokter *</label>
+                                <select id="inputDokter" required onchange="setJadwalDefault()"
+                                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500" disabled>
+                                    <option value="" disabled selected>Pilih Poli terlebih dahulu</option>
+                                    <!-- Options injected via JS -->
+                                </select>
+                            </div>
+
+                            <!-- Jadwal Seharusnya -->
+                            <div>
+                                <label for="inputJadwal" class="block text-sm font-medium text-gray-700 mb-1">Jadwal Mulai (Sesuai SIP) *</label>
+                                <input type="time" id="inputJadwal" required
+                                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <p class="text-xs text-gray-500 mt-1">Terisi otomatis jika jadwal dokter diset, tapi bisa diubah.</p>
+                            </div>
+
+                            <!-- Waktu Hadir Real -->
+                            <div>
+                                <label for="inputHadir" class="block text-sm font-medium text-gray-700 mb-1">Waktu Kehadiran Aktual *</label>
+                                <div class="flex space-x-2">
+                                    <input type="time" id="inputHadir" required
+                                        class="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <button type="button" onclick="setWaktuSekarang()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none transition-colors text-sm font-medium">
+                                        Sekarang
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Status Kehadiran (Bisa Override) -->
+                            <div>
+                                <label for="inputStatus" class="block text-sm font-medium text-gray-700 mb-1">Status Kehadiran</label>
+                                <select id="inputStatus" required
+                                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="Hadir">Hadir</option>
+                                    <option value="Izin">Izin/Cuti</option>
+                                    <option value="Sakit">Sakit</option>
+                                    <option value="Tanpa Keterangan">Tanpa Keterangan</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Jika Izin/Sakit, isian waktu akan diabaikan.</p>
+                            </div>
+                            
+                            <!-- Keterangan Tambahan -->
+                            <div class="md:col-span-2">
+                                <label for="inputKeterangan" class="block text-sm font-medium text-gray-700 mb-1">Keterangan / Alasan Terlambat (Opsional)</label>
+                                <textarea id="inputKeterangan" rows="2"
+                                    class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-400" placeholder="Contoh: Terjebak macet, visit pasien ranap lama..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-200 flex justify-end">
+                            <button type="reset" class="mr-3 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors">
+                                Reset
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-indigo-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                Simpan Data
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- === HALAMAN: DATA DOKTER & POLI === -->
+            <section id="data-dokter" class="page-section hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Form Tambah Dokter/Poli -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-lg shadow p-5 mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Tambah Master Data</h3>
+                            
+                            <!-- Tab navigation -->
+                            <div class="flex border-b mb-4">
+                                <button onclick="switchMasterTab('dokter')" id="tabBtnDokter" class="flex-1 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors">Dokter Baru</button>
+                                <button onclick="switchMasterTab('poli')" id="tabBtnPoli" class="flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors">Poli Baru</button>
+                            </div>
+
+                            <!-- Form Dokter -->
+                            <form id="formTambahDokter" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Dokter (beserta gelar)</label>
+                                    <input type="text" id="masterNamaDokter" required placeholder="dr. Jhon Doe, Sp.PD" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Poliklinik</label>
+                                    <select id="masterPoliDokter" required class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <!-- Injected via JS -->
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Jadwal Default (Mulai)</label>
+                                    <input type="time" id="masterJadwalDokter" required class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <button type="submit" class="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Dokter</button>
+                            </form>
+
+                            <!-- Form Poli (Hidden by default) -->
+                            <form id="formTambahPoli" class="space-y-4 hidden">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Poliklinik</label>
+                                    <input type="text" id="masterNamaPoli" required placeholder="Poli Penyakit Dalam" class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <button type="submit" class="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Poli</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- List Data -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-lg shadow overflow-hidden h-full flex flex-col">
+                            <div class="px-5 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                <h3 class="text-lg font-semibold text-gray-700">Daftar Dokter Terdaftar</h3>
+                                <div class="relative">
+                                    <input type="text" id="searchDokter" placeholder="Cari dokter..." class="pl-8 pr-3 py-1 text-sm border rounded-full focus:outline-none focus:border-indigo-500">
+                                    <i class="fas fa-search absolute left-3 top-2 text-gray-400 text-xs"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-0">
+                                <ul id="listDokterMaster" class="divide-y divide-gray-200">
+                                    <!-- Injected via JS -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- === HALAMAN: LAPORAN === -->
+            <section id="laporan" class="page-section hidden h-full flex flex-col">
+                <div class="bg-white rounded-lg shadow mb-4 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-500 font-medium">Periode</label>
+                            <select id="filterPeriodeType" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 py-1.5 pl-2 pr-8 border" onchange="updateReportFilters()">
+                                <option value="mingguan">Mingguan</option>
+                                <option value="bulanan" selected>Bulanan</option>
+                                <option value="semua">Semua Waktu</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex flex-col" id="containerFilterBulan">
+                            <label class="text-xs text-gray-500 font-medium">Bulan</label>
+                            <input type="month" id="filterBulan" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 px-2 border">
+                        </div>
+
+                        <div class="flex flex-col hidden" id="containerFilterMinggu">
+                            <label class="text-xs text-gray-500 font-medium">Pilih Tanggal dalam Minggu</label>
+                            <input type="date" id="filterMinggu" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 px-2 border">
+                        </div>
+
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-500 font-medium">Filter Poli</label>
+                            <select id="filterPoliLap" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 pl-2 pr-8 border">
+                                <option value="semua">Semua Poli</option>
+                                <!-- Injected via JS -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button onclick="generateReport()" class="flex-1 sm:flex-none px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition">
+                            <i class="fas fa-sync-alt mr-1"></i> Terapkan
+                        </button>
+                        <button onclick="exportToCSV()" class="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition" title="Export CSV">
+                            <i class="fas fa-file-csv mr-1"></i> Export
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Laporan Summary -->
+                <div id="reportSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 hidden">
+                    <div class="bg-indigo-50 rounded p-3 border border-indigo-100 text-center">
+                        <p class="text-xs text-indigo-800 uppercase tracking-wide">Total Praktik</p>
+                        <p class="text-xl font-bold text-indigo-900" id="repTotal">0</p>
+                    </div>
+                    <div class="bg-emerald-50 rounded p-3 border border-emerald-100 text-center">
+                        <p class="text-xs text-emerald-800 uppercase tracking-wide">Tepat Waktu</p>
+                        <p class="text-xl font-bold text-emerald-900" id="repTepat">0 <span class="text-sm font-normal" id="repTepatPct">(0%)</span></p>
+                    </div>
+                    <div class="bg-amber-50 rounded p-3 border border-amber-100 text-center">
+                        <p class="text-xs text-amber-800 uppercase tracking-wide">Terlambat</p>
+                        <p class="text-xl font-bold text-amber-900" id="repTelat">0 <span class="text-sm font-normal" id="repTelatPct">(0%)</span></p>
+                    </div>
+                    <div class="bg-red-50 rounded p-3 border border-red-100 text-center">
+                        <p class="text-xs text-red-800 uppercase tracking-wide">Tidak Hadir</p>
+                        <p class="text-xl font-bold text-red-900" id="repAbsen">0</p>
+                    </div>
+                </div>
+
+                <!-- Tabs Laporan -->
+                <div class="flex border-b border-gray-200 mb-4 bg-white rounded-lg px-4 pt-2 shadow-sm shrink-0">
+                    <button onclick="switchReportTab('analisis')" id="tabBtnAnalisis" class="py-2 px-4 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors">Analisis Per Dokter</button>
+                    <button onclick="switchReportTab('detail')" id="tabBtnDetail" class="py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors">Log Detail Kehadiran</button>
+                </div>
+
+                <div class="bg-white rounded-lg shadow flex-1 overflow-hidden flex flex-col relative">
+                    
+                    <!-- View Analisis -->
+                    <div id="viewAnalisis" class="table-container flex-1 overflow-y-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokter</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poliklinik</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total Praktik</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tepat Waktu</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Terlambat</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Absen</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">% Tepat</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Rata-rata Waktu</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="laporanAnalisisBody">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- View Detail -->
+                    <div id="viewDetail" class="table-container flex-1 overflow-y-auto hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokter</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poli</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Jadwal</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Hadir</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Selisih</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keterangan</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200" id="laporanTableBody">
+                                <!-- Data will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Empty Message -->
+                    <div id="emptyReportMessage" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center p-10 text-gray-500 z-20">
+                        <i class="fas fa-folder-open text-4xl mb-3 text-gray-300"></i>
+                        <p>Tidak ada data untuk periode dan filter ini.</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Overlay untuk Sidebar Mobile -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Konfigurasi Firebase (Mendukung Environment Preview & Deployment Vercel)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            // TODO: Ganti konfigurasi di bawah ini dengan config dari Firebase Console Anda sebelum deploy ke Vercel!
+            apiKey: "AIzaSyCBHGtntnCsm_vdPfBE4LmrzgNd5qA4v9Q",
+            authDomain: "medi-time-b4435.firebaseapp.com",
+            projectId: "medi-time-b4435",
+            storageBucket: "medi-time-b4435.firebasestorage.app",
+            messagingSenderId: "665266313242",
+            appId: "1:665266313242:web:7adcf6143c0b7daeef99a3"
+        };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'meditime-multiuser';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- KONFIGURASI TOLERANSI KETERLAMBATAN ---
+        const TOLERANSI_MENIT = 15; // Dokter dianggap tepat waktu jika telat <= 15 menit
+
+        // Variabel global untuk menyimpan data secara reaktif dari Firestore
+        let appData = {
+            poliklinik: [],
+            dokter: [],
+            kehadiran: []
+        };
+        
+        // State loading untuk memastikan data ter-load sempurna
+        let isDataLoaded = { poliklinik: false, dokter: false, kehadiran: false };
+
+        // Instansiasi Chart
+        let trendChartInstance = null;
+        let poliChartInstance = null;
+
+        // Path Koleksi Multiuser (Pusat data bersama untuk aplikasi klinik ini)
+        const getColPath = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
+        const getDocPath = (colName, docId) => doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
+
+        // Inisialisasi Auth & Listeners Cloud
+        async function initFirebaseApp() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                setupRealtimeListeners();
+            } catch (error) {
+                console.error("Auth error:", error);
+                showToast("Gagal koneksi ke database Firebase.", "error");
+            }
+        }
+
+        // Cek jika seluruh data (poli, dokter, kehadiran) sudah sinkron
+        function checkAllDataLoaded() {
+            if(isDataLoaded.poliklinik && isDataLoaded.dokter && isDataLoaded.kehadiran) {
+                refreshCurrentPage();
+            }
+        }
+
+        // Me-refresh UI halaman yang sedang aktif agar data tampil realtime
+        function refreshCurrentPage() {
+            const activeLink = document.querySelector('.nav-link.bg-indigo-900');
+            if(!activeLink) return;
+            const pageId = activeLink.getAttribute('data-page');
+            
+            if (pageId === 'dashboard') updateDashboard();
+            else if (pageId === 'input-data') prepareInputForm();
+            else if (pageId === 'data-dokter') renderMasterData(document.getElementById('searchDokter')?.value || "");
+            else if (pageId === 'laporan') generateReport();
+        }
+
+        // Listener Realtime ke Cloud Firestore
+        function setupRealtimeListeners() {
+            onSnapshot(getColPath('poliklinik'), (snapshot) => {
+                appData.poliklinik = [];
+                snapshot.forEach(doc => appData.poliklinik.push({ id: doc.id, ...doc.data() }));
+                isDataLoaded.poliklinik = true;
+                checkAllDataLoaded();
+            }, (err) => console.error("Error poli:", err));
+
+            onSnapshot(getColPath('dokter'), (snapshot) => {
+                appData.dokter = [];
+                snapshot.forEach(doc => appData.dokter.push({ id: doc.id, ...doc.data() }));
+                isDataLoaded.dokter = true;
+                checkAllDataLoaded();
+            }, (err) => console.error("Error dokter:", err));
+
+            onSnapshot(getColPath('kehadiran'), (snapshot) => {
+                appData.kehadiran = [];
+                snapshot.forEach(doc => appData.kehadiran.push({ id: doc.id, ...doc.data() }));
+                // Urutkan data berdasarkan yang paling baru
+                appData.kehadiran.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal)); 
+                isDataLoaded.kehadiran = true;
+                checkAllDataLoaded();
+            }, (err) => console.error("Error kehadiran:", err));
+        }
+
+        // --- STREAMING_CHUNK:Fungsi Utility & UI Interaction ---
+        
+        // Menampilkan Notifikasi Toast
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icon = type === 'success' ? '<i class="fas fa-check-circle mr-2"></i>' : '<i class="fas fa-exclamation-circle mr-2"></i>';
+            toast.innerHTML = `${icon} ${message}`;
+            
+            container.appendChild(toast);
+            
+            // Hapus elemen setelah animasi selesai (3 detik)
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Tampilkan tanggal hari ini di header
+        function setHeaderDate() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const today = new Date().toLocaleDateString('id-ID', options);
+            document.getElementById('currentDateDisplay').textContent = today;
+        }
+
+        // Navigasi antar halaman (SPA routing sederhana)
+        function showPage(pageId) {
+            // Sembunyikan semua halaman
+            document.querySelectorAll('.page-section').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            // Hapus kelas aktif dari semua link navigasi
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.classList.remove('bg-indigo-700', 'bg-indigo-900');
+            });
+            
+            // Tampilkan halaman yang dipilih
+            const targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.classList.remove('hidden');
+            }
+            
+            // Set nav link yang aktif
+            const activeLink = document.querySelector(`.nav-link[data-page="${pageId}"]`);
+            if (activeLink) {
+                activeLink.classList.add('bg-indigo-900'); // Active state color
+                
+                // Update Title Header
+                const titleText = activeLink.innerText.trim();
+                document.getElementById('pageTitle').textContent = titleText;
+            }
+
+            // Jalankan fungsi spesifik halaman
+            if (pageId === 'dashboard') {
+                updateDashboard();
+            } else if (pageId === 'input-data') {
+                prepareInputForm();
+            } else if (pageId === 'data-dokter') {
+                renderMasterData();
+            } else if (pageId === 'laporan') {
+                prepareLaporan();
+            }
+
+            // Tutup sidebar di mobile jika terbuka
+            if (window.innerWidth < 768) {
+                toggleSidebar();
+            }
+        }
+
+        // Mobile Sidebar Toggle
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        let isSidebarOpen = false;
+
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            if (isSidebarOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('openSidebarBtn').addEventListener('click', toggleSidebar);
+        document.getElementById('closeSidebarBtn').addEventListener('click', toggleSidebar);
+        overlay.addEventListener('click', toggleSidebar);
+
+        // Reset Data Function ke Firestore
+        async function resetData() {
+            if(confirm("PERINGATAN: Anda akan menghapus SEMUA data dari sistem secara permanen. Apakah Anda yakin?")) {
+                showToast("Memproses penghapusan...", "success");
+                try {
+                    for (let d of appData.kehadiran) await deleteDoc(getDocPath('kehadiran', d.id));
+                    for (let d of appData.dokter) await deleteDoc(getDocPath('dokter', d.id));
+                    for (let d of appData.poliklinik) await deleteDoc(getDocPath('poliklinik', d.id));
+                    showToast("Seluruh database berhasil direset.", "success");
+                    showPage('dashboard');
+                } catch (error) {
+                    showToast("Gagal mereset data.", "error");
+                }
+            }
+        }
+
+        // Helper: Hitung selisih waktu dalam menit
+        function calculateTimeDifference(jadwalStr, hadirStr) {
+            if (!jadwalStr || !hadirStr) return 0;
+            
+            const jParts = jadwalStr.split(':');
+            const hParts = hadirStr.split(':');
+            
+            const jDate = new Date();
+            jDate.setHours(parseInt(jParts[0], 10), parseInt(jParts[1], 10), 0);
+            
+            const hDate = new Date();
+            hDate.setHours(parseInt(hParts[0], 10), parseInt(hParts[1], 10), 0);
+            
+            // Selisih dalam milisecond, ubah ke menit
+            let diffMins = Math.round((hDate - jDate) / 60000);
+            return diffMins;
+        }
+
+        // Helper: Format selisih waktu menjadi string (Tepat, Telat X mnt, Awal X mnt)
+        function formatSelisihInfo(diffMins, status) {
+            if(status !== 'Hadir') return '-';
+            
+            if (diffMins <= 0) {
+                return `<span class="text-emerald-600 font-medium">Tepat (Awal ${Math.abs(diffMins)}m)</span>`;
+            } else if (diffMins <= TOLERANSI_MENIT) {
+                return `<span class="text-indigo-600 font-medium">Toleransi (+${diffMins}m)</span>`;
+            } else {
+                return `<span class="text-red-600 font-medium">Terlambat (+${diffMins}m)</span>`;
+            }
+        }
+
+        // Format Status Badge
+        function formatStatusBadge(status) {
+            switch(status) {
+                case 'Hadir': return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800">Hadir</span>`;
+                case 'Izin': return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">Izin</span>`;
+                case 'Sakit': return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">Sakit</span>`;
+                default: return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">${status}</span>`;
+            }
+        }
+
+        // --- STREAMING_CHUNK:Logika Halaman Input Data ---
+        
+        function prepareInputForm() {
+            // Set hari ini
+            document.getElementById('inputTanggal').valueAsDate = new Date();
+            
+            // Populasi dropdown Poli
+            const selectPoli = document.getElementById('inputPoli');
+            selectPoli.innerHTML = '<option value="" disabled selected>Pilih Poliklinik</option>';
+            appData.poliklinik.forEach(p => {
+                selectPoli.innerHTML += `<option value="${p.id}">${p.nama}</option>`;
+            });
+            
+            // Reset dropdown dokter
+            document.getElementById('inputDokter').innerHTML = '<option value="" disabled selected>Pilih Poli terlebih dahulu</option>';
+            document.getElementById('inputDokter').disabled = true;
+            
+            // Reset isian waktu
+            document.getElementById('inputJadwal').value = '';
+            document.getElementById('inputHadir').value = '';
+            document.getElementById('inputKeterangan').value = '';
+            document.getElementById('inputStatus').value = 'Hadir';
+            
+            toggleTimeInput(); // Set state awal input time
+        }
+
+        // Update dropdown dokter saat poli dipilih
+        function updateDokterDropdown() {
+            const poliId = document.getElementById('inputPoli').value;
+            const selectDokter = document.getElementById('inputDokter');
+            
+            const dokterTerkait = appData.dokter.filter(d => d.poliId === poliId);
+            
+            selectDokter.innerHTML = '<option value="" disabled selected>Pilih Dokter</option>';
+            
+            if (dokterTerkait.length > 0) {
+                dokterTerkait.forEach(d => {
+                    selectDokter.innerHTML += `<option value="${d.id}">${d.nama}</option>`;
+                });
+                selectDokter.disabled = false;
+            } else {
+                selectDokter.innerHTML = '<option value="" disabled>Tidak ada dokter di poli ini</option>';
+                selectDokter.disabled = true;
+                document.getElementById('inputJadwal').value = '';
+            }
+        }
+
+        // Set jadwal default saat dokter dipilih
+        function setJadwalDefault() {
+            const dokterId = document.getElementById('inputDokter').value;
+            const dokter = appData.dokter.find(d => d.id === dokterId);
+            
+            if (dokter) {
+                document.getElementById('inputJadwal').value = dokter.jadwalDefault;
+            }
+        }
+
+        // Set waktu hadir dengan jam saat ini
+        function setWaktuSekarang() {
+            const now = new Date();
+            const timeString = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('inputHadir').value = timeString;
+            document.getElementById('inputStatus').value = 'Hadir'; // otomatis set ke hadir
+            toggleTimeInput();
+        }
+
+        // Toggle input waktu (disable jika tidak hadir)
+        function toggleTimeInput() {
+            const status = document.getElementById('inputStatus').value;
+            const inputHadir = document.getElementById('inputHadir');
+            
+            if (status !== 'Hadir') {
+                inputHadir.disabled = true;
+                inputHadir.value = '';
+                inputHadir.classList.add('bg-gray-100');
+            } else {
+                inputHadir.disabled = false;
+                inputHadir.classList.remove('bg-gray-100');
+            }
+        }
+
+        document.getElementById('inputStatus').addEventListener('change', toggleTimeInput);
+
+        // Submit Form Kehadiran ke Firestore
+        document.getElementById('formKehadiran').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const tanggal = document.getElementById('inputTanggal').value;
+            const dokterId = document.getElementById('inputDokter').value;
+            const poliId = document.getElementById('inputPoli').value;
+            const jadwal = document.getElementById('inputJadwal').value;
+            const status = document.getElementById('inputStatus').value;
+            let hadir = document.getElementById('inputHadir').value;
+            const keterangan = document.getElementById('inputKeterangan').value;
+            
+            // Validasi: Cegah input ganda untuk dokter dan tanggal yang sama
+            const existingLog = appData.kehadiran.find(k => k.tanggal === tanggal && k.dokterId === dokterId);
+            
+            if (existingLog) {
+                if(!confirm(`Catatan kehadiran untuk dokter ini pada tanggal ${tanggal} sudah ada. Apakah Anda ingin menimpanya?`)) {
+                    return; // Batal simpan
+                }
+            }
+
+            // Hitung keterlambatan jika hadir
+            let keterlambatanMenit = null;
+            if (status === 'Hadir') {
+                const selisih = calculateTimeDifference(jadwal, hadir);
+                keterlambatanMenit = selisih > 0 ? selisih : 0; 
+            } else {
+                hadir = ""; // kosongkan waktu jika tidak hadir
+            }
+
+            // Siapkan payload ke Firestore
+            const docId = existingLog ? existingLog.id : 'log_' + Date.now() + Math.random().toString(36).substr(2, 5);
+            const payload = { tanggal, dokterId, poliId, jadwal, hadir, status, keterangan, keterlambatanMenit };
+
+            try {
+                await setDoc(getDocPath('kehadiran', docId), payload);
+                showToast('Catatan kehadiran berhasil disinkronisasi!', 'success');
+                
+                // Reset form sebagian, biarkan tanggal tetap
+                const tgSave = document.getElementById('inputTanggal').value;
+                this.reset();
+                document.getElementById('inputTanggal').value = tgSave;
+                prepareInputForm(); // Repopulate dropdown
+            } catch (error) {
+                showToast('Gagal menyimpan data ke jaringan', 'error');
+            }
+        });
+
+
+        // --- STREAMING_CHUNK:Logika Halaman Master Data ---
+        
+        function switchMasterTab(tab) {
+            const btnDokter = document.getElementById('tabBtnDokter');
+            const btnPoli = document.getElementById('tabBtnPoli');
+            const formDokter = document.getElementById('formTambahDokter');
+            const formPoli = document.getElementById('formTambahPoli');
+
+            if (tab === 'dokter') {
+                btnDokter.className = "flex-1 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors";
+                btnPoli.className = "flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors";
+                formDokter.classList.remove('hidden');
+                formPoli.classList.add('hidden');
+            } else {
+                btnPoli.className = "flex-1 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors";
+                btnDokter.className = "flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors";
+                formPoli.classList.remove('hidden');
+                formDokter.classList.add('hidden');
+            }
+        }
+
+        function renderMasterData(searchTerm = "") {
+            // Populasi dropdown Poli di form tambah dokter
+            const selectPoliMst = document.getElementById('masterPoliDokter');
+            selectPoliMst.innerHTML = '<option value="" disabled selected>Pilih Poliklinik</option>';
+            appData.poliklinik.forEach(p => {
+                selectPoliMst.innerHTML += `<option value="${p.id}">${p.nama}</option>`;
+            });
+
+            // Render List Dokter
+            const listContainer = document.getElementById('listDokterMaster');
+            listContainer.innerHTML = '';
+            
+            const term = searchTerm.toLowerCase();
+            
+            let filteredDokter = appData.dokter;
+            if(term) {
+                filteredDokter = appData.dokter.filter(d => d.nama.toLowerCase().includes(term));
+            }
+
+            if (filteredDokter.length === 0) {
+                listContainer.innerHTML = '<li class="px-5 py-4 text-center text-gray-500 text-sm">Tidak ada dokter ditemukan.</li>';
+                return;
+            }
+
+            filteredDokter.forEach(d => {
+                const poli = appData.poliklinik.find(p => p.id === d.poliId);
+                const namaPoli = poli ? poli.nama : 'Poli Tidak Ditemukan';
+                
+                const li = document.createElement('li');
+                li.className = "px-5 py-4 flex items-center justify-between hover:bg-gray-50";
+                li.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                            <i class="fas fa-user-md"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-900">${d.nama}</p>
+                            <p class="text-xs text-gray-500">${namaPoli} | Jadwal: ${d.jadwalDefault}</p>
+                        </div>
+                    </div>
+                    <button onclick="hapusDokter('${d.id}')" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Hapus Dokter">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                `;
+                listContainer.appendChild(li);
+            });
+        }
+
+        // Pencarian Dokter
+        document.getElementById('searchDokter').addEventListener('input', (e) => {
+            renderMasterData(e.target.value);
+        });
+
+        // Submit Master Dokter ke Firestore
+        document.getElementById('formTambahDokter').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const nama = document.getElementById('masterNamaDokter').value;
+            const poliId = document.getElementById('masterPoliDokter').value;
+            const jadwalDefault = document.getElementById('masterJadwalDokter').value;
+
+            const docId = 'd_' + Date.now();
+            try {
+                await setDoc(getDocPath('dokter', docId), { nama, poliId, jadwalDefault });
+                showToast('Dokter berhasil didaftarkan', 'success');
+                this.reset();
+            } catch (error) { showToast('Gagal mendaftar dokter', 'error'); }
+        });
+
+        // Submit Master Poli ke Firestore
+        document.getElementById('formTambahPoli').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const nama = document.getElementById('masterNamaPoli').value;
+
+            const docId = 'p_' + Date.now();
+            try {
+                await setDoc(getDocPath('poliklinik', docId), { nama });
+                showToast('Poliklinik berhasil ditambahkan', 'success');
+                this.reset();
+                switchMasterTab('dokter'); 
+            } catch (error) { showToast('Gagal menambah poliklinik', 'error'); }
+        });
+
+        async function hapusDokter(id) {
+            if(confirm("Yakin ingin menghapus dokter ini? Riwayat kehadirannya tidak akan terhapus.")) {
+                try {
+                    await deleteDoc(getDocPath('dokter', id));
+                    showToast('Dokter telah dihapus', 'success');
+                } catch (error) { showToast('Gagal menghapus dokter', 'error'); }
+            }
+        }
+
+        // --- STREAMING_CHUNK:Logika Halaman Dashboard (Statistik & Chart) ---
+        
+        function updateDashboard() {
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+
+            // 1. Hitung Summary Cards (Data Bulan Ini)
+            let totalHadirBulanIni = 0;
+            let totalTepatWaktu = 0;
+            let totalKeterlambatanMins = 0;
+            let totalTerlambatCount = 0;
+            let totalTidakHadir = 0;
+
+            const dataBulanIni = appData.kehadiran.filter(k => {
+                const tgl = new Date(k.tanggal);
+                return tgl.getMonth() === currentMonth && tgl.getFullYear() === currentYear;
+            });
+
+            dataBulanIni.forEach(k => {
+                if(k.status === 'Hadir') {
+                    totalHadirBulanIni++;
+                    // Hitung tepat waktu (menggunakan batas toleransi)
+                    if(k.keterlambatanMenit <= TOLERANSI_MENIT) {
+                        totalTepatWaktu++;
+                    } else {
+                        totalKeterlambatanMins += k.keterlambatanMenit;
+                        totalTerlambatCount++;
+                    }
+                } else {
+                    totalTidakHadir++;
+                }
+            });
+
+            // Update UI Summary
+            document.getElementById('dashTotalDokter').textContent = appData.dokter.length;
+            
+            const pctTepatWaktu = totalHadirBulanIni > 0 ? Math.round((totalTepatWaktu / totalHadirBulanIni) * 100) : 0;
+            document.getElementById('dashTepatWaktu').textContent = `${pctTepatWaktu}%`;
+            
+            const avgTerlambat = totalTerlambatCount > 0 ? Math.round(totalKeterlambatanMins / totalTerlambatCount) : 0;
+            document.getElementById('dashRataTerlambat').textContent = `${avgTerlambat} mnt`;
+            
+            document.getElementById('dashTidakHadir').textContent = totalTidakHadir;
+
+            // 2. Render Tabel Terbaru (Max 5)
+            const tbody = document.getElementById('recentTableBody');
+            tbody.innerHTML = '';
+            
+            const recentData = [...appData.kehadiran].slice(0, 5); // Data sudah terurut saat insert/generate
+            
+            if(recentData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Belum ada data kehadiran.</td></tr>';
+            } else {
+                recentData.forEach(k => {
+                    const dokter = appData.dokter.find(d => d.id === k.dokterId);
+                    const poli = appData.poliklinik.find(p => p.id === k.poliId);
+                    
+                    const namaDokter = dokter ? dokter.nama : 'Dokter Terhapus';
+                    const namaPoli = poli ? poli.nama : '-';
+                    const tglFormat = new Date(k.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'});
+                    
+                    let timeInfo = '-';
+                    let timeColor = 'text-gray-500';
+                    
+                    if(k.status === 'Hadir') {
+                        timeInfo = k.hadir;
+                        if(k.keterlambatanMenit <= 0) timeColor = 'text-emerald-600 font-medium';
+                        else if(k.keterlambatanMenit <= TOLERANSI_MENIT) timeColor = 'text-indigo-600 font-medium';
+                        else timeColor = 'text-red-600 font-bold';
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-900">${tglFormat}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${namaDokter}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">${namaPoli}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-500">${k.jadwal}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm ${timeColor}">${timeInfo}</td>
+                        <td class="px-6 py-3 whitespace-nowrap text-sm">${formatStatusBadge(k.status)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // 3. Render Charts
+            renderCharts();
+        }
+
+        function renderCharts() {
+            // Chart 1: Trend Kepatuhan 7 Hari Terakhir
+            const last7DaysData = prepareTrendData();
+            
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            
+            if(trendChartInstance) trendChartInstance.destroy();
+            
+            trendChartInstance = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: last7DaysData.labels,
+                    datasets: [
+                        {
+                            label: '% Tepat Waktu',
+                            data: last7DaysData.tepatWaktuPct,
+                            borderColor: '#10b981', // Emerald 500
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100,
+                            ticks: { callback: function(value) { return value + "%" } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return context.parsed.y + "% Tepat Waktu"; }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Kepatuhan per Poli (Bulan Ini)
+            const poliData = preparePoliData();
+            
+            const ctxPoli = document.getElementById('poliChart').getContext('2d');
+            if(poliChartInstance) poliChartInstance.destroy();
+
+            // Array warna untuk doughnut chart
+            const colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+            poliChartInstance = new Chart(ctxPoli, {
+                type: 'doughnut',
+                data: {
+                    labels: poliData.labels,
+                    datasets: [{
+                        data: poliData.data,
+                        backgroundColor: colors.slice(0, poliData.labels.length),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: {size: 11} } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { 
+                                    return ` ${context.label}: ${context.parsed}% Tepat Waktu`; 
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Helper Data untuk Chart Trend
+        function prepareTrendData() {
+            const labels = [];
+            const tepatWaktuPct = [];
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            // Generate 7 hari terakhir (urutan waktu: lama -> baru)
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                // Format label dd/mm
+                labels.push(`${date.getDate()}/${date.getMonth()+1}`);
+
+                // Ambil data hari tersebut
+                const dayData = appData.kehadiran.filter(k => k.tanggal === dateStr && k.status === 'Hadir');
+                
+                if(dayData.length === 0) {
+                    tepatWaktuPct.push(0);
+                } else {
+                    const tepat = dayData.filter(k => k.keterlambatanMenit <= TOLERANSI_MENIT).length;
+                    tepatWaktuPct.push(Math.round((tepat / dayData.length) * 100));
+                }
+            }
+            
+            return { labels, tepatWaktuPct };
+        }
+
+        // Helper Data untuk Chart Poli
+        function preparePoliData() {
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            
+            const poliStats = {};
+            
+            // Inisialisasi stat per poli
+            appData.poliklinik.forEach(p => {
+                poliStats[p.id] = { nama: p.nama, totalHadir: 0, tepatWaktu: 0 };
+            });
+
+            // Kumpulkan data bulan ini
+            appData.kehadiran.forEach(k => {
+                const tgl = new Date(k.tanggal);
+                if(tgl.getMonth() === currentMonth && tgl.getFullYear() === currentYear && k.status === 'Hadir') {
+                    if(poliStats[k.poliId]) {
+                        poliStats[k.poliId].totalHadir++;
+                        if(k.keterlambatanMenit <= TOLERANSI_MENIT) {
+                            poliStats[k.poliId].tepatWaktu++;
+                        }
+                    }
+                }
+            });
+
+            const labels = [];
+            const data = [];
+
+            // Hitung persentase
+            for(const pid in poliStats) {
+                const stat = poliStats[pid];
+                // Hanya tampilkan poli yang punya data kehadiran
+                if(stat.totalHadir > 0) {
+                    // Sederhanakan nama poli untuk label
+                    let shortName = stat.nama.replace('Poli ', '');
+                    if(shortName.length > 15) shortName = shortName.substring(0, 15) + '...';
+                    
+                    labels.push(shortName);
+                    data.push(Math.round((stat.tepatWaktu / stat.totalHadir) * 100));
+                }
+            }
+
+            // Fallback jika kosong
+            if(labels.length === 0) {
+                return { labels: ['Belum ada data'], data: [0] };
+            }
+
+            return { labels, data };
+        }
+
+
+        // --- STREAMING_CHUNK:Logika Halaman Laporan ---
+
+        function prepareLaporan() {
+            // Set default value filter bulan ke bulan ini
+            const now = new Date();
+            const monthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+            document.getElementById('filterBulan').value = monthStr;
+
+            // Set default value filter minggu (date picker) ke hari ini
+            document.getElementById('filterMinggu').valueAsDate = now;
+
+            // Populate filter Poli
+            const selectPoli = document.getElementById('filterPoliLap');
+            selectPoli.innerHTML = '<option value="semua">Semua Poli</option>';
+            appData.poliklinik.forEach(p => {
+                selectPoli.innerHTML += `<option value="${p.id}">${p.nama}</option>`;
+            });
+
+            // Tampilkan UI Filter yg sesuai
+            updateReportFilters();
+            
+            // Generate awal
+            generateReport();
+        }
+
+        // Handle perubahan tipe filter (Mingguan/Bulanan)
+        function updateReportFilters() {
+            const type = document.getElementById('filterPeriodeType').value;
+            const containerBulan = document.getElementById('containerFilterBulan');
+            const containerMinggu = document.getElementById('containerFilterMinggu');
+
+            if (type === 'bulanan') {
+                containerBulan.classList.remove('hidden');
+                containerMinggu.classList.add('hidden');
+            } else if (type === 'mingguan') {
+                containerBulan.classList.add('hidden');
+                containerMinggu.classList.remove('hidden');
+            } else {
+                // Semua waktu
+                containerBulan.classList.add('hidden');
+                containerMinggu.classList.add('hidden');
+            }
+        }
+
+        // Helper untuk mendapatkan awal & akhir minggu (Senin - Minggu)
+        function getWeekRange(dateString) {
+            const curr = new Date(dateString);
+            const day = curr.getDay(); // 0=Sun, 1=Mon, dll.
+            // Geser ke hari Senin
+            const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+            
+            const firstDay = new Date(curr.setDate(diff));
+            const lastDay = new Date(curr.setDate(firstDay.getDate() + 6));
+            
+            // Format YYYY-MM-DD
+            return {
+                start: firstDay.toISOString().split('T')[0],
+                end: lastDay.toISOString().split('T')[0]
+            };
+        }
+
+        // Variabel global untuk menyimpan data laporan yg terfilter (untuk Export)
+        let currentReportData = [];
+
+        function generateReport() {
+            const type = document.getElementById('filterPeriodeType').value;
+            const filterPoli = document.getElementById('filterPoliLap').value;
+            
+            let filteredData = appData.kehadiran;
+
+            // 1. Filter berdasarkan Periode
+            if (type === 'bulanan') {
+                const monthVal = document.getElementById('filterBulan').value; // format YYYY-MM
+                if(monthVal) {
+                    const [year, month] = monthVal.split('-');
+                    filteredData = filteredData.filter(k => {
+                        const tgl = new Date(k.tanggal);
+                        return tgl.getFullYear() == year && (tgl.getMonth() + 1) == month;
+                    });
+                }
+            } else if (type === 'mingguan') {
+                const dateVal = document.getElementById('filterMinggu').value;
+                if(dateVal) {
+                    const {start, end} = getWeekRange(dateVal);
+                    filteredData = filteredData.filter(k => k.tanggal >= start && k.tanggal <= end);
+                }
+            }
+
+            // 2. Filter berdasarkan Poli
+            if (filterPoli !== 'semua') {
+                filteredData = filteredData.filter(k => k.poliId === filterPoli);
+            }
+
+            // Urutkan: Terlama ke Terbaru (Standar Laporan)
+            filteredData.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+            
+            // Simpan ke global variable
+            currentReportData = filteredData;
+
+            renderReportTable(filteredData);
+            renderAnalysisTable(filteredData);
+            updateReportSummary(filteredData);
+        }
+
+        function switchReportTab(tab) {
+            const btnAnalisis = document.getElementById('tabBtnAnalisis');
+            const btnDetail = document.getElementById('tabBtnDetail');
+            const viewAnalisis = document.getElementById('viewAnalisis');
+            const viewDetail = document.getElementById('viewDetail');
+
+            if (tab === 'analisis') {
+                btnAnalisis.className = "py-2 px-4 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors";
+                btnDetail.className = "py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors";
+                viewAnalisis.classList.remove('hidden');
+                viewDetail.classList.add('hidden');
+            } else {
+                btnDetail.className = "py-2 px-4 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-colors";
+                btnAnalisis.className = "py-2 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none transition-colors";
+                viewDetail.classList.remove('hidden');
+                viewAnalisis.classList.add('hidden');
+            }
+        }
+
+        function renderAnalysisTable(data) {
+            const tbody = document.getElementById('laporanAnalisisBody');
+            tbody.innerHTML = '';
+            
+            if(data.length === 0) return;
+
+            // Kelompokkan data per dokter
+            const doctorStats = {};
+            
+            data.forEach(log => {
+                if(!doctorStats[log.dokterId]) {
+                    doctorStats[log.dokterId] = {
+                        dokterId: log.dokterId,
+                        poliId: log.poliId,
+                        totalPraktik: 0,
+                        tepatWaktu: 0,
+                        terlambat: 0,
+                        absen: 0,
+                        totalSelisihMenit: 0 // negatif = awal, positif = telat
+                    };
+                }
+                
+                doctorStats[log.dokterId].totalPraktik++;
+                
+                if (log.status === 'Hadir') {
+                    const diff = calculateTimeDifference(log.jadwal, log.hadir);
+                    doctorStats[log.dokterId].totalSelisihMenit += diff;
+                    
+                    if (diff <= TOLERANSI_MENIT) {
+                        doctorStats[log.dokterId].tepatWaktu++;
+                    } else {
+                        doctorStats[log.dokterId].terlambat++;
+                    }
+                } else {
+                    doctorStats[log.dokterId].absen++;
+                }
+            });
+
+            // Konversi ke array dan urutkan berdasarkan nama dokter
+            const statsArray = Object.values(doctorStats).map(stat => {
+                const dokter = appData.dokter.find(d => d.id === stat.dokterId);
+                const poli = appData.poliklinik.find(p => p.id === stat.poliId);
+                return {
+                    ...stat,
+                    namaDokter: dokter ? dokter.nama : 'Dokter Terhapus',
+                    namaPoli: poli ? poli.nama : '-'
+                };
+            });
+            
+            statsArray.sort((a, b) => a.namaDokter.localeCompare(b.namaDokter));
+
+            statsArray.forEach(stat => {
+                const totalHadir = stat.tepatWaktu + stat.terlambat;
+                const pctTepat = totalHadir > 0 ? Math.round((stat.tepatWaktu / totalHadir) * 100) : 0;
+                
+                // Hitung rata-rata waktu (hanya jika ada kehadiran)
+                let avgTimeText = "-";
+                let avgTimeColor = "text-gray-500";
+                
+                if (totalHadir > 0) {
+                    const avgMins = Math.round(stat.totalSelisihMenit / totalHadir);
+                    if (avgMins <= 0) {
+                        avgTimeText = `${Math.abs(avgMins)} mnt lebih awal`;
+                        avgTimeColor = "text-emerald-600 font-medium";
+                    } else if (avgMins <= TOLERANSI_MENIT) {
+                        avgTimeText = `${avgMins} mnt telat (Toleransi)`;
+                        avgTimeColor = "text-indigo-600 font-medium";
+                    } else {
+                        avgTimeText = `${avgMins} mnt terlambat`;
+                        avgTimeColor = "text-red-600 font-bold";
+                    }
+                }
+
+                // Warna untuk persentase
+                let pctColor = "text-red-600 font-bold";
+                if (pctTepat >= 80) pctColor = "text-emerald-600 font-bold";
+                else if (pctTepat >= 50) pctColor = "text-amber-600 font-bold";
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${stat.namaDokter}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${stat.namaPoli}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-900">${stat.totalPraktik}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-emerald-600">${stat.tepatWaktu}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-amber-600">${stat.terlambat}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-red-500">${stat.absen}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm ${pctColor}">${pctTepat}%</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm ${avgTimeColor}">${avgTimeText}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateReportSummary(data) {
+            const summaryDiv = document.getElementById('reportSummary');
+            const emptyMsg = document.getElementById('emptyReportMessage');
+            
+            if(data.length === 0) {
+                summaryDiv.classList.add('hidden');
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            summaryDiv.classList.remove('hidden');
+            emptyMsg.classList.add('hidden');
+
+            let total = data.length;
+            let tepat = 0;
+            let telat = 0;
+            let absen = 0;
+
+            data.forEach(k => {
+                if(k.status === 'Hadir') {
+                    if(k.keterlambatanMenit <= TOLERANSI_MENIT) tepat++;
+                    else telat++;
+                } else {
+                    absen++;
+                }
+            });
+
+            const hadirTtl = tepat + telat;
+            const pctTepat = hadirTtl > 0 ? Math.round((tepat/hadirTtl)*100) : 0;
+            const pctTelat = hadirTtl > 0 ? Math.round((telat/hadirTtl)*100) : 0;
+
+            document.getElementById('repTotal').textContent = total;
+            document.getElementById('repTepat').innerHTML = `${tepat} <span class="text-sm font-normal text-emerald-700">(${pctTepat}%)</span>`;
+            document.getElementById('repTelat').innerHTML = `${telat} <span class="text-sm font-normal text-amber-700">(${pctTelat}%)</span>`;
+            document.getElementById('repAbsen').textContent = absen;
+        }
+
+        function renderReportTable(data) {
+            const tbody = document.getElementById('laporanTableBody');
+            
+            tbody.innerHTML = '';
+            
+            if(data.length === 0) return;
+
+            data.forEach(k => {
+                const dokter = appData.dokter.find(d => d.id === k.dokterId);
+                const poli = appData.poliklinik.find(p => p.id === k.poliId);
+                
+                const namaDokter = dokter ? dokter.nama : 'Dokter Terhapus';
+                const namaPoli = poli ? poli.nama : '-';
+                
+                // Format Tanggal jadi dd/mm/yyyy
+                const d = new Date(k.tanggal);
+                const tglFormat = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+
+                const diffMins = calculateTimeDifference(k.jadwal, k.hadir);
+                const strSelisih = formatSelisihInfo(diffMins, k.status);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${tglFormat}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${namaDokter}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${namaPoli}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500">${k.jadwal}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-900 font-medium">${k.status === 'Hadir' ? k.hadir : '-'}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm">${strSelisih}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm">${formatStatusBadge(k.status)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500 max-w-xs truncate" title="${k.keterangan}">${k.keterangan || '-'}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                        <button onclick="hapusLog('${k.id}')" class="text-red-500 hover:text-red-700 bg-red-50 px-2 py-1 rounded transition" title="Hapus Data">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function hapusLog(logId) {
+            if(confirm("Hapus catatan kehadiran ini dari sistem?")) {
+                try {
+                    await deleteDoc(getDocPath('kehadiran', logId));
+                    showToast("Data kehadiran telah dihapus.", "success");
+                } catch (error) { showToast('Gagal menghapus data', 'error'); }
+            }
+        }
+
+        // Export Laporan ke CSV
+        function exportToCSV() {
+            if (currentReportData.length === 0) {
+                showToast("Tidak ada data untuk diexport", "error");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            
+            // Header
+            csvContent += "Tanggal,Dokter,Poliklinik,Jadwal SIP,Waktu Hadir,Status,Keterlambatan (Menit),Keterangan\n";
+
+            currentReportData.forEach(k => {
+                const dokter = appData.dokter.find(d => d.id === k.dokterId);
+                const poli = appData.poliklinik.find(p => p.id === k.poliId);
+                
+                const namaDokter = dokter ? `"${dokter.nama}"` : '"-"';
+                const namaPoli = poli ? `"${poli.nama}"` : '"-"';
+                
+                const ketText = k.keterangan ? `"${k.keterangan.replace(/"/g, '""')}"` : '""';
+                const telatStr = k.status === 'Hadir' ? k.keterlambatanMenit : "";
+                const hadirStr = k.status === 'Hadir' ? k.hadir : "";
+
+                // Susun baris
+                let row = `${k.tanggal},${namaDokter},${namaPoli},${k.jadwal},${hadirStr},${k.status},${telatStr},${ketText}`;
+                csvContent += row + "\n";
+            });
+
+            // Eksekusi Download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            
+            // Buat nama file dinamis
+            const type = document.getElementById('filterPeriodeType').value;
+            let filename = "Laporan_Kepatuhan_Dokter";
+            if (type === 'bulanan') filename += "_" + document.getElementById('filterBulan').value;
+            else if (type === 'mingguan') filename += "_Minggu_" + document.getElementById('filterMinggu').value;
+            
+            link.setAttribute("download", filename + ".csv");
+            document.body.appendChild(link); // Required for FF
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast("Berhasil mendownload CSV", "success");
+        }
+
+        // Mengekspor fungsi ke `window` agar bisa dipanggil oleh element HTML via onclick/onchange (karena menggunakan type="module")
+        window.showPage = showPage;
+        window.resetData = resetData;
+        window.updateDokterDropdown = updateDokterDropdown;
+        window.setJadwalDefault = setJadwalDefault;
+        window.setWaktuSekarang = setWaktuSekarang;
+        window.switchMasterTab = switchMasterTab;
+        window.hapusDokter = hapusDokter;
+        window.updateReportFilters = updateReportFilters;
+        window.generateReport = generateReport;
+        window.switchReportTab = switchReportTab;
+        window.hapusLog = hapusLog;
+        window.exportToCSV = exportToCSV;
+
+        // --- Inisialisasi Aplikasi Saat Halaman Dimuat ---
+        window.onload = function() {
+            setHeaderDate();
+            initFirebaseApp();
+            showPage('dashboard');
+        };
+
+    </script>
+</body>
+</html>
