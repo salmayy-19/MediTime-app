@@ -217,6 +217,49 @@
                     </div>
                 </div>
 
+                <!-- Top 10 Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Top 10 Terbaik -->
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-emerald-50 flex justify-between items-center">
+                            <h3 class="text-lg font-semibold text-emerald-800"><i class="fas fa-trophy text-amber-500 mr-2"></i>10 Dokter Paling Tepat Waktu (Bulan Ini)</h3>
+                        </div>
+                        <div class="table-container">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-white">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokter</th>
+                                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">% Tepat</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="topBestTableBody">
+                                    <!-- Data will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Top 10 Terburuk -->
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-red-50 flex justify-between items-center">
+                            <h3 class="text-lg font-semibold text-red-800"><i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>10 Dokter Paling Sering Terlambat (Bulan Ini)</h3>
+                        </div>
+                        <div class="table-container">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-white">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokter</th>
+                                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">% Tepat</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="topWorstTableBody">
+                                    <!-- Data will be injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Recent Activities Table -->
                 <div class="bg-white rounded-lg shadow overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
@@ -256,7 +299,7 @@
                             <!-- Tanggal -->
                             <div>
                                 <label for="inputTanggal" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Praktik *</label>
-                                <input type="date" id="inputTanggal" required
+                                <input type="date" id="inputTanggal" required onchange="setJadwalDefault()"
                                     class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
                             
@@ -361,8 +404,51 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Jadwal Default (Mulai)</label>
-                                    <input type="time" id="masterJadwalDokter" required class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Jadwal Praktik per Hari</label>
+                                    <div class="space-y-2 border border-gray-300 rounded-md p-3 bg-gray-50 max-h-56 overflow-y-auto">
+                                        <!-- Senin -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk1" value="1" onchange="toggleTimeInputDay('1')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk1" class="w-16 text-sm text-gray-700">Senin</label>
+                                            <input type="time" id="time1" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                        <!-- Selasa -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk2" value="2" onchange="toggleTimeInputDay('2')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk2" class="w-16 text-sm text-gray-700">Selasa</label>
+                                            <input type="time" id="time2" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                        <!-- Rabu -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk3" value="3" onchange="toggleTimeInputDay('3')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk3" class="w-16 text-sm text-gray-700">Rabu</label>
+                                            <input type="time" id="time3" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                        <!-- Kamis -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk4" value="4" onchange="toggleTimeInputDay('4')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk4" class="w-16 text-sm text-gray-700">Kamis</label>
+                                            <input type="time" id="time4" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                        <!-- Jumat -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk5" value="5" onchange="toggleTimeInputDay('5')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk5" class="w-16 text-sm text-gray-700">Jumat</label>
+                                            <input type="time" id="time5" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                        <!-- Sabtu -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk6" value="6" onchange="toggleTimeInputDay('6')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk6" class="w-16 text-sm text-gray-700">Sabtu</label>
+                                            <input type="time" id="time6" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                        <!-- Minggu -->
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="chk0" value="0" onchange="toggleTimeInputDay('0')" class="chk-hari w-4 h-4 text-indigo-600 rounded border-gray-300">
+                                            <label for="chk0" class="w-16 text-sm text-gray-700">Minggu</label>
+                                            <input type="time" id="time0" class="time-hari flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-200 disabled:text-gray-400" disabled required>
+                                        </div>
+                                    </div>
                                 </div>
                                 <button type="submit" class="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors">Simpan Dokter</button>
                             </form>
@@ -776,6 +862,17 @@
             }
         }
 
+        // Helper: Format Jadwal Objek ke String (Utk list Dokter)
+        function formatJadwalInfo(jadwalObj, jadwalDefault) {
+            if (!jadwalObj) return jadwalDefault || '-'; // Kompatibilitas data lama
+            const namaHari = {0:'Min', 1:'Sen', 2:'Sel', 3:'Rab', 4:'Kam', 5:'Jum', 6:'Sab'};
+            let items = [];
+            for(let day in jadwalObj) {
+                items.push(`${namaHari[day]}: ${jadwalObj[day]}`);
+            }
+            return items.length > 0 ? items.join(', ') : 'Belum diset';
+        }
+
         // --- STREAMING_CHUNK:Logika Halaman Input Data ---
         
         function prepareInputForm() {
@@ -826,10 +923,28 @@
         // Set jadwal default saat dokter dipilih
         function setJadwalDefault() {
             const dokterId = document.getElementById('inputDokter').value;
-            const dokter = appData.dokter.find(d => d.id === dokterId);
+            const tanggalStr = document.getElementById('inputTanggal').value;
+            const inputJadwal = document.getElementById('inputJadwal');
             
+            if (!dokterId) return;
+
+            const dokter = appData.dokter.find(d => d.id === dokterId);
             if (dokter) {
-                document.getElementById('inputJadwal').value = dokter.jadwalDefault;
+                if (tanggalStr) {
+                    const dayOfWeek = new Date(tanggalStr).getDay(); // Mengambil index hari (0=Minggu, 1=Senin, dsb)
+                    
+                    if (dokter.jadwal && dokter.jadwal[dayOfWeek]) {
+                        inputJadwal.value = dokter.jadwal[dayOfWeek];
+                    } else if (dokter.jadwalDefault && !dokter.jadwal) {
+                        // Kompatibilitas jika menggunakan data lama
+                        inputJadwal.value = dokter.jadwalDefault;
+                    } else {
+                        // Dokter tidak ada jadwal di hari yang dipilih
+                        inputJadwal.value = '';
+                    }
+                } else if (dokter.jadwalDefault && !dokter.jadwal) {
+                    inputJadwal.value = dokter.jadwalDefault;
+                }
             }
         }
 
@@ -956,6 +1071,7 @@
             filteredDokter.forEach(d => {
                 const poli = appData.poliklinik.find(p => p.id === d.poliId);
                 const namaPoli = poli ? poli.nama : 'Poli Tidak Ditemukan';
+                const jadwalInfo = formatJadwalInfo(d.jadwal, d.jadwalDefault);
                 
                 const li = document.createElement('li');
                 li.className = "px-5 py-4 flex items-center justify-between hover:bg-gray-50";
@@ -966,7 +1082,8 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-900">${d.nama}</p>
-                            <p class="text-xs text-gray-500">${namaPoli} | Jadwal: ${d.jadwalDefault}</p>
+                            <p class="text-xs text-gray-500">${namaPoli}</p>
+                            <p class="text-xs text-indigo-600 mt-0.5" title="${jadwalInfo}">Jadwal: ${jadwalInfo}</p>
                         </div>
                     </div>
                     <button onclick="hapusDokter('${d.id}')" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Hapus Dokter">
@@ -987,15 +1104,40 @@
             e.preventDefault();
             const nama = document.getElementById('masterNamaDokter').value;
             const poliId = document.getElementById('masterPoliDokter').value;
-            const jadwalDefault = document.getElementById('masterJadwalDokter').value;
+            
+            // Mengambil data jadwal per hari
+            const jadwal = {};
+            const checkboxes = document.querySelectorAll('.chk-hari');
+            checkboxes.forEach(chk => {
+                if(chk.checked) {
+                    const timeVal = document.getElementById(`time${chk.value}`).value;
+                    jadwal[chk.value] = timeVal;
+                }
+            });
+
+            if(Object.keys(jadwal).length === 0) {
+                showToast('Pilih minimal 1 hari jadwal praktik!', 'error');
+                return;
+            }
 
             const docId = 'd_' + Date.now();
             try {
-                await setDoc(getDocPath('dokter', docId), { nama, poliId, jadwalDefault });
+                // jadwalDefault diisi kosong untuk data baru, data asli ada di jadwal (objek)
+                await setDoc(getDocPath('dokter', docId), { nama, poliId, jadwalDefault: '', jadwal });
                 showToast('Dokter berhasil didaftarkan', 'success');
                 this.reset();
+                // Disable ulang semua input time
+                document.querySelectorAll('.time-hari').forEach(t => t.disabled = true);
             } catch (error) { showToast('Gagal mendaftar dokter', 'error'); }
         });
+
+        // Toggle disable pada input time sesuai checkbox hari
+        function toggleTimeInputDay(dayValue) {
+            const timeInput = document.getElementById(`time${dayValue}`);
+            const isChecked = document.getElementById(`chk${dayValue}`).checked;
+            timeInput.disabled = !isChecked;
+            if(!isChecked) timeInput.value = '';
+        }
 
         // Submit Master Poli ke Firestore
         document.getElementById('formTambahPoli').addEventListener('submit', async function(e) {
@@ -1107,6 +1249,84 @@
 
             // 3. Render Charts
             renderCharts();
+
+            // 4. Render Top 10 Terbaik & Terburuk
+            renderTopPerformers(dataBulanIni);
+        }
+
+        function renderTopPerformers(dataBulanIni) {
+            const doctorPerformance = {};
+
+            // Hitung data kehadiran per dokter
+            dataBulanIni.forEach(k => {
+                if (k.status === 'Hadir') {
+                    if (!doctorPerformance[k.dokterId]) {
+                        doctorPerformance[k.dokterId] = { hadir: 0, tepat: 0 };
+                    }
+                    doctorPerformance[k.dokterId].hadir++;
+                    if (k.keterlambatanMenit <= TOLERANSI_MENIT) {
+                        doctorPerformance[k.dokterId].tepat++;
+                    }
+                }
+            });
+
+            // Ubah menjadi array untuk di-sort
+            const performanceArray = Object.keys(doctorPerformance).map(doctorId => {
+                const stats = doctorPerformance[doctorId];
+                const pct = Math.round((stats.tepat / stats.hadir) * 100);
+                const docInfo = appData.dokter.find(d => d.id === doctorId);
+                return {
+                    id: doctorId,
+                    nama: docInfo ? docInfo.nama : 'Dokter Terhapus',
+                    hadir: stats.hadir,
+                    tepat: stats.tepat,
+                    pct: pct
+                };
+            });
+
+            // Sort untuk 10 Terbaik: % Tepat terbesar, jika sama urutkan dari total hadir terbanyak
+            const bestDoctors = [...performanceArray].sort((a, b) => b.pct - a.pct || b.hadir - a.hadir).slice(0, 10);
+            
+            // Sort untuk 10 Terburuk: % Tepat terkecil, jika sama urutkan dari total hadir terbanyak
+            const worstDoctors = [...performanceArray].sort((a, b) => a.pct - b.pct || b.hadir - a.hadir).slice(0, 10);
+
+            // Render 10 Terbaik
+            const bestBody = document.getElementById('topBestTableBody');
+            bestBody.innerHTML = '';
+            if (bestDoctors.length === 0) {
+                bestBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-sm text-gray-500">Belum ada data bulan ini.</td></tr>';
+            } else {
+                bestDoctors.forEach((d, index) => {
+                    // Tambahkan medali untuk top 3
+                    let medal = `<span class="inline-block w-5 font-bold text-gray-400">${index + 1}.</span>`;
+                    if (index === 0) medal = `<span class="inline-block w-6 text-amber-400"><i class="fas fa-medal"></i></span>`;
+                    else if (index === 1) medal = `<span class="inline-block w-6 text-gray-400"><i class="fas fa-medal"></i></span>`;
+                    else if (index === 2) medal = `<span class="inline-block w-6 text-amber-700"><i class="fas fa-medal"></i></span>`;
+
+                    bestBody.innerHTML += `
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${medal} ${d.nama} <span class="text-xs text-gray-400 font-normal ml-1">(${d.hadir} kehadiran)</span></td>
+                            <td class="px-6 py-3 whitespace-nowrap text-center text-sm font-bold text-emerald-600">${d.pct}%</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Render 10 Terburuk
+            const worstBody = document.getElementById('topWorstTableBody');
+            worstBody.innerHTML = '';
+            if (worstDoctors.length === 0) {
+                worstBody.innerHTML = '<tr><td colspan="2" class="px-6 py-4 text-center text-sm text-gray-500">Belum ada data bulan ini.</td></tr>';
+            } else {
+                worstDoctors.forEach((d, index) => {
+                    worstBody.innerHTML += `
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900"><span class="inline-block w-6 font-bold text-red-400">${index + 1}.</span> ${d.nama} <span class="text-xs text-gray-400 font-normal ml-1">(${d.hadir} kehadiran)</span></td>
+                            <td class="px-6 py-3 whitespace-nowrap text-center text-sm font-bold text-red-600">${d.pct}%</td>
+                        </tr>
+                    `;
+                });
+            }
         }
 
         function renderCharts() {
@@ -1637,6 +1857,7 @@
         window.switchReportTab = switchReportTab;
         window.hapusLog = hapusLog;
         window.exportToCSV = exportToCSV;
+        window.toggleTimeInputDay = toggleTimeInputDay;
 
         // --- Inisialisasi Aplikasi Saat Halaman Dimuat ---
         window.onload = function() {
