@@ -11,6 +11,10 @@
     <!-- Chart.js untuk Dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- jsPDF & AutoTable untuk Export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
     <!-- Font Awesome untuk Ikon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -213,6 +217,25 @@
                         <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Persentase Tepat Waktu per Poliklinik</h3>
                         <div class="relative h-64 w-full flex justify-center">
                             <canvas id="poliChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2 (Baru ditambahkan) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Chart: Jam Kedatangan -->
+                    <div class="bg-white rounded-lg shadow p-5">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Distribusi Waktu Kedatangan Dokter (Bulan Ini)</h3>
+                        <div class="relative h-64 w-full">
+                            <canvas id="arrivalChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart: Proporsi Status Kehadiran -->
+                    <div class="bg-white rounded-lg shadow p-5">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4 border-b pb-2">Proporsi Kehadiran Keseluruhan (Bulan Ini)</h3>
+                        <div class="relative h-64 w-full flex justify-center">
+                            <canvas id="statusChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -502,43 +525,63 @@
 
             <!-- === HALAMAN: LAPORAN === -->
             <section id="laporan" class="page-section hidden h-full flex flex-col">
-                <div class="bg-white rounded-lg shadow mb-4 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <div class="bg-white rounded-lg shadow mb-4 p-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div class="flex flex-wrap items-end gap-3 w-full lg:w-auto">
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-500 font-medium">Periode</label>
+                            <label class="text-xs text-gray-500 font-medium mb-1">Periode</label>
                             <select id="filterPeriodeType" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 py-1.5 pl-2 pr-8 border" onchange="updateReportFilters()">
-                                <option value="mingguan">Mingguan</option>
+                                <option value="rentang">Rentang Tanggal</option>
                                 <option value="bulanan" selected>Bulanan</option>
                                 <option value="semua">Semua Waktu</option>
                             </select>
                         </div>
                         
                         <div class="flex flex-col" id="containerFilterBulan">
-                            <label class="text-xs text-gray-500 font-medium">Bulan</label>
+                            <label class="text-xs text-gray-500 font-medium mb-1">Bulan</label>
                             <input type="month" id="filterBulan" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 px-2 border">
                         </div>
 
-                        <div class="flex flex-col hidden" id="containerFilterMinggu">
-                            <label class="text-xs text-gray-500 font-medium">Pilih Tanggal dalam Minggu</label>
-                            <input type="date" id="filterMinggu" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 px-2 border">
+                        <div class="flex flex-row items-end gap-2 hidden" id="containerFilterRentang">
+                            <div class="flex flex-col">
+                                <label class="text-xs text-gray-500 font-medium mb-1">Dari Tanggal</label>
+                                <input type="date" id="filterTglMulai" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 px-2 border">
+                            </div>
+                            <div class="flex flex-col text-gray-500 font-medium pb-1.5">-</div>
+                            <div class="flex flex-col">
+                                <label class="text-xs text-gray-500 font-medium mb-1">Sampai</label>
+                                <input type="date" id="filterTglAkhir" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 px-2 border">
+                            </div>
                         </div>
 
                         <div class="flex flex-col">
-                            <label class="text-xs text-gray-500 font-medium">Filter Poli</label>
-                            <select id="filterPoliLap" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 pl-2 pr-8 border">
+                            <label class="text-xs text-gray-500 font-medium mb-1">Filter Poli</label>
+                            <select id="filterPoliLap" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 pl-2 pr-8 border" onchange="updateDokterFilterLap()">
                                 <option value="semua">Semua Poli</option>
+                                <!-- Injected via JS -->
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col">
+                            <label class="text-xs text-gray-500 font-medium mb-1">Filter Dokter</label>
+                            <select id="filterDokterLap" class="text-sm border-gray-300 rounded-md focus:ring-indigo-500 py-1.5 pl-2 pr-8 border max-w-[200px] truncate">
+                                <option value="semua">Semua Dokter</option>
                                 <!-- Injected via JS -->
                             </select>
                         </div>
                     </div>
                     
-                    <div class="flex gap-2 w-full sm:w-auto">
-                        <button onclick="generateReport()" class="flex-1 sm:flex-none px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition">
+                    <div class="flex flex-wrap gap-2 w-full lg:w-auto shrink-0 mt-2 lg:mt-0">
+                        <button onclick="generateReport()" class="flex-1 lg:flex-none px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition">
                             <i class="fas fa-sync-alt mr-1"></i> Terapkan
                         </button>
-                        <button onclick="exportToCSV()" class="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition" title="Export CSV">
-                            <i class="fas fa-file-csv mr-1"></i> Export
-                        </button>
+                        <div class="flex flex-1 lg:flex-none border rounded-md overflow-hidden bg-emerald-600 border-emerald-600 shadow-sm">
+                            <button onclick="exportToCSV()" class="flex-1 lg:flex-none px-3 py-2 text-white text-sm font-medium hover:bg-emerald-700 transition" title="Export CSV">
+                                <i class="fas fa-file-csv mr-1"></i> CSV
+                            </button>
+                            <button onclick="exportToPDF()" class="flex-1 lg:flex-none px-3 py-2 text-white text-sm font-medium hover:bg-emerald-700 transition border-l border-emerald-700" title="Export PDF">
+                                <i class="fas fa-file-pdf mr-1"></i> PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -665,6 +708,8 @@
         // Instansiasi Chart
         let trendChartInstance = null;
         let poliChartInstance = null;
+        let arrivalChartInstance = null;
+        let statusChartInstance = null;
 
         // Path Koleksi Multiuser (Pusat data bersama untuk aplikasi klinik ini)
         const getColPath = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
@@ -1595,6 +1640,74 @@
                     }
                 }
             });
+
+            // Chart 3: Distribusi Jam Kedatangan
+            const arrivalData = prepareArrivalData();
+            const ctxArrival = document.getElementById('arrivalChart').getContext('2d');
+            if(arrivalChartInstance) arrivalChartInstance.destroy();
+            
+            arrivalChartInstance = new Chart(ctxArrival, {
+                type: 'bar',
+                data: {
+                    labels: arrivalData.labels,
+                    datasets: [{
+                        label: 'Jumlah Kehadiran',
+                        data: arrivalData.data,
+                        backgroundColor: 'rgba(99, 102, 241, 0.8)', // Indigo 500
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return `${context.parsed.y} Kehadiran`; }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+
+            // Chart 4: Proporsi Status Kehadiran
+            const statusData = prepareStatusData();
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            if(statusChartInstance) statusChartInstance.destroy();
+
+            // Cek jika data kosong agar chart tidak error visual
+            const isEmptyData = statusData.data.every(d => d === 0);
+
+            statusChartInstance = new Chart(ctxStatus, {
+                type: 'pie',
+                data: {
+                    labels: statusData.labels,
+                    datasets: [{
+                        data: isEmptyData ? [1] : statusData.data,
+                        backgroundColor: isEmptyData ? ['#e5e7eb'] : ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#9ca3af'], // Emerald, Amber, Blue, Red, Gray
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12, font: {size: 11} } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { 
+                                    if(isEmptyData) return 'Belum ada data';
+                                    return ` ${context.label}: ${context.parsed} Kehadiran`; 
+                                }
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         // Helper Data untuk Chart Trend
@@ -1678,6 +1791,69 @@
             return { labels, data };
         }
 
+        // Helper Data untuk Chart Distribusi Jam
+        function prepareArrivalData() {
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            
+            // Kelompok (Buckets) Jam Kedatangan
+            const buckets = { '< 07:00': 0, '07:00-08:00': 0, '08:00-09:00': 0, '09:00-10:00': 0, '10:00-12:00': 0, '> 12:00': 0 };
+
+            appData.kehadiran.forEach(k => {
+                const tgl = new Date(k.tanggal);
+                if(tgl.getMonth() === currentMonth && tgl.getFullYear() === currentYear && k.status === 'Hadir' && k.hadir) {
+                    const hour = parseInt(k.hadir.split(':')[0], 10);
+                    if (hour < 7) buckets['< 07:00']++;
+                    else if (hour === 7) buckets['07:00-08:00']++;
+                    else if (hour === 8) buckets['08:00-09:00']++;
+                    else if (hour === 9) buckets['09:00-10:00']++;
+                    else if (hour >= 10 && hour < 12) buckets['10:00-12:00']++;
+                    else buckets['> 12:00']++;
+                }
+            });
+
+            return { labels: Object.keys(buckets), data: Object.values(buckets) };
+        }
+
+        // Helper Data untuk Chart Status Kehadiran
+        function prepareStatusData() {
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            
+            const stats = { 'Hadir Tepat': 0, 'Hadir Telat': 0, 'Izin/Cuti': 0, 'Sakit': 0, 'Tanpa Keterangan': 0 };
+
+            appData.kehadiran.forEach(k => {
+                const tgl = new Date(k.tanggal);
+                if(tgl.getMonth() === currentMonth && tgl.getFullYear() === currentYear) {
+                    if (k.status === 'Hadir') {
+                        if (k.keterlambatanMenit <= TOLERANSI_MENIT) stats['Hadir Tepat']++;
+                        else stats['Hadir Telat']++;
+                    } else if (k.status === 'Izin') {
+                        stats['Izin/Cuti']++;
+                    } else if (k.status === 'Sakit') {
+                        stats['Sakit']++;
+                    } else {
+                        stats['Tanpa Keterangan']++;
+                    }
+                }
+            });
+
+            // Filter agar label yang bernilai 0 tidak perlu meramaikan grafik (Opsional, tapi membuat UI lebih bersih)
+            const labels = [];
+            const data = [];
+            for (let key in stats) {
+                if (stats[key] > 0 || Object.keys(stats).length === 0) { 
+                    labels.push(key);
+                    data.push(stats[key]);
+                }
+            }
+            
+            if(data.length === 0) {
+                 return { labels: ['Belum ada data'], data: [0] };
+            }
+
+            return { labels, data };
+        }
 
         // --- STREAMING_CHUNK:Logika Halaman Laporan ---
 
@@ -1687,8 +1863,11 @@
             const monthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
             document.getElementById('filterBulan').value = monthStr;
 
-            // Set default value filter minggu (date picker) ke hari ini
-            document.getElementById('filterMinggu').valueAsDate = now;
+            // Set default value filter rentang (7 hari terakhir ke hari ini)
+            const lastWeek = new Date(now);
+            lastWeek.setDate(now.getDate() - 7);
+            document.getElementById('filterTglMulai').valueAsDate = lastWeek;
+            document.getElementById('filterTglAkhir').valueAsDate = now;
 
             // Populate filter Poli
             const selectPoli = document.getElementById('filterPoliLap');
@@ -1697,6 +1876,9 @@
                 selectPoli.innerHTML += `<option value="${p.id}">${p.nama}</option>`;
             });
 
+            // Populate filter Dokter
+            updateDokterFilterLap();
+
             // Tampilkan UI Filter yg sesuai
             updateReportFilters();
             
@@ -1704,40 +1886,39 @@
             generateReport();
         }
 
-        // Handle perubahan tipe filter (Mingguan/Bulanan)
+        // Handle perubahan list dokter di Laporan jika Poli diubah
+        function updateDokterFilterLap() {
+            const poliId = document.getElementById('filterPoliLap').value;
+            const selectDokter = document.getElementById('filterDokterLap');
+            selectDokter.innerHTML = '<option value="semua">Semua Dokter</option>';
+            
+            let filteredDokter = appData.dokter;
+            if (poliId !== 'semua') {
+                filteredDokter = filteredDokter.filter(d => d.poliId === poliId);
+            }
+            
+            filteredDokter.forEach(d => {
+                selectDokter.innerHTML += `<option value="${d.id}">${d.nama}</option>`;
+            });
+        }
+
+        // Handle perubahan tipe filter (Rentang/Bulanan/Semua)
         function updateReportFilters() {
             const type = document.getElementById('filterPeriodeType').value;
             const containerBulan = document.getElementById('containerFilterBulan');
-            const containerMinggu = document.getElementById('containerFilterMinggu');
+            const containerRentang = document.getElementById('containerFilterRentang');
 
             if (type === 'bulanan') {
                 containerBulan.classList.remove('hidden');
-                containerMinggu.classList.add('hidden');
-            } else if (type === 'mingguan') {
+                containerRentang.classList.add('hidden');
+            } else if (type === 'rentang') {
                 containerBulan.classList.add('hidden');
-                containerMinggu.classList.remove('hidden');
+                containerRentang.classList.remove('hidden');
             } else {
                 // Semua waktu
                 containerBulan.classList.add('hidden');
-                containerMinggu.classList.add('hidden');
+                containerRentang.classList.add('hidden');
             }
-        }
-
-        // Helper untuk mendapatkan awal & akhir minggu (Senin - Minggu)
-        function getWeekRange(dateString) {
-            const curr = new Date(dateString);
-            const day = curr.getDay(); // 0=Sun, 1=Mon, dll.
-            // Geser ke hari Senin
-            const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
-            
-            const firstDay = new Date(curr.setDate(diff));
-            const lastDay = new Date(curr.setDate(firstDay.getDate() + 6));
-            
-            // Format YYYY-MM-DD
-            return {
-                start: firstDay.toISOString().split('T')[0],
-                end: lastDay.toISOString().split('T')[0]
-            };
         }
 
         // Variabel global untuk menyimpan data laporan yg terfilter (untuk Export)
@@ -1746,6 +1927,7 @@
         function generateReport() {
             const type = document.getElementById('filterPeriodeType').value;
             const filterPoli = document.getElementById('filterPoliLap').value;
+            const filterDokter = document.getElementById('filterDokterLap').value;
             
             let filteredData = appData.kehadiran;
 
@@ -1759,10 +1941,10 @@
                         return tgl.getFullYear() == year && (tgl.getMonth() + 1) == month;
                     });
                 }
-            } else if (type === 'mingguan') {
-                const dateVal = document.getElementById('filterMinggu').value;
-                if(dateVal) {
-                    const {start, end} = getWeekRange(dateVal);
+            } else if (type === 'rentang') {
+                const start = document.getElementById('filterTglMulai').value;
+                const end = document.getElementById('filterTglAkhir').value;
+                if(start && end) {
                     filteredData = filteredData.filter(k => k.tanggal >= start && k.tanggal <= end);
                 }
             }
@@ -1770,6 +1952,11 @@
             // 2. Filter berdasarkan Poli
             if (filterPoli !== 'semua') {
                 filteredData = filteredData.filter(k => k.poliId === filterPoli);
+            }
+
+            // 3. Filter berdasarkan Dokter
+            if (filterDokter !== 'semua') {
+                filteredData = filteredData.filter(k => k.dokterId === filterDokter);
             }
 
             // Urutkan: Terlama ke Terbaru (Standar Laporan)
@@ -2030,6 +2217,103 @@
             showToast("Berhasil mendownload CSV", "success");
         }
 
+        // Export Laporan ke PDF
+        function exportToPDF() {
+            if (currentReportData.length === 0) {
+                showToast("Tidak ada data untuk diexport", "error");
+                return;
+            }
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('l', 'mm', 'a4'); // Format Landscape A4
+
+                // Header Dokumen
+                doc.setFontSize(16);
+                doc.setTextColor(31, 41, 55); // text-gray-800
+                doc.text("Laporan Kehadiran Dokter - MediTime", 14, 15);
+                
+                doc.setFontSize(10);
+                doc.setTextColor(107, 114, 128); // text-gray-500
+                
+                // Info Periode
+                const type = document.getElementById('filterPeriodeType').value;
+                let periodeStr = "Semua Waktu";
+                if (type === 'bulanan') {
+                    periodeStr = "Bulan: " + document.getElementById('filterBulan').value;
+                } else if (type === 'rentang') {
+                    const startFormat = new Date(document.getElementById('filterTglMulai').value).toLocaleDateString('id-ID');
+                    const endFormat = new Date(document.getElementById('filterTglAkhir').value).toLocaleDateString('id-ID');
+                    periodeStr = `Rentang: ${startFormat} s/d ${endFormat}`;
+                }
+                
+                // Info Filter Tambahan
+                const filterPoli = document.getElementById('filterPoliLap');
+                const textPoli = filterPoli.options[filterPoli.selectedIndex].text;
+                const filterDokter = document.getElementById('filterDokterLap');
+                const textDokter = filterDokter.options[filterDokter.selectedIndex].text;
+                
+                doc.text(`Periode: ${periodeStr}   |   Poli: ${textPoli}   |   Dokter: ${textDokter}`, 14, 22);
+
+                // Setup Tabel
+                const tableColumn = ["Tanggal", "Dokter", "Poli", "Jadwal", "Hadir", "Status", "Keterlambatan", "Keterangan"];
+                const tableRows = [];
+
+                currentReportData.forEach(k => {
+                    const dokter = appData.dokter.find(d => d.id === k.dokterId);
+                    const poli = appData.poliklinik.find(p => p.id === k.poliId);
+                    
+                    const namaDokter = dokter ? dokter.nama : '-';
+                    const namaPoli = poli ? poli.nama : '-';
+                    const d = new Date(k.tanggal);
+                    const tglFormat = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+                    
+                    let telatStr = "-";
+                    if (k.status === 'Hadir') {
+                        const diffMins = calculateTimeDifference(k.jadwal, k.hadir);
+                        if (diffMins <= 0) telatStr = `Awal ${Math.abs(diffMins)}m`;
+                        else if (diffMins <= TOLERANSI_MENIT) telatStr = `Toleransi (+${diffMins}m)`;
+                        else telatStr = `Telat +${diffMins}m`;
+                    }
+
+                    tableRows.push([
+                        tglFormat,
+                        namaDokter,
+                        namaPoli,
+                        k.jadwal,
+                        k.status === 'Hadir' ? k.hadir : '-',
+                        k.status,
+                        telatStr,
+                        k.keterangan || '-'
+                    ]);
+                });
+
+                doc.autoTable({
+                    head: [tableColumn],
+                    body: tableRows,
+                    startY: 28,
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    headStyles: { fillColor: [79, 70, 229], textColor: 255 }, // bg-indigo-600
+                    alternateRowStyles: { fillColor: [249, 250, 251] }, // bg-gray-50
+                    columnStyles: { 
+                        7: { cellWidth: 40 } // Beri ruang lebih untuk keterangan
+                    }
+                });
+
+                // Set Nama File & Simpan
+                let filename = "Lap_Kehadiran";
+                if (type === 'bulanan') filename += "_" + document.getElementById('filterBulan').value;
+                else if (type === 'rentang') filename += "_Rentang_" + document.getElementById('filterTglMulai').value;
+                
+                doc.save(filename + ".pdf");
+                showToast("Berhasil mengekspor Laporan PDF", "success");
+
+            } catch (error) {
+                console.error(error);
+                showToast("Gagal memproses PDF", "error");
+            }
+        }
+
         // Mengekspor fungsi ke `window` agar bisa dipanggil oleh element HTML via onclick/onchange (karena menggunakan type="module")
         window.showPage = showPage;
         window.resetData = resetData;
@@ -2047,7 +2331,9 @@
         window.switchReportTab = switchReportTab;
         window.hapusLog = hapusLog;
         window.exportToCSV = exportToCSV;
+        window.exportToPDF = exportToPDF;
         window.toggleTimeInputDay = toggleTimeInputDay;
+        window.updateDokterFilterLap = updateDokterFilterLap;
 
         // --- Inisialisasi Aplikasi Saat Halaman Dimuat ---
         window.onload = function() {
